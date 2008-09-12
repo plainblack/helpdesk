@@ -1,0 +1,70 @@
+#title=View Ticket User List
+#namespace=Ticket/userList
+#assetId=TICKET0000000000000004
+<tmpl_if noResults>
+No users Found.  Please try another search
+<tmpl_else>
+<tmpl_if tooManyResults>
+Too many results found.  Please try a more specific search
+<tmpl_else>
+<div id="userList_div">
+<table border="0" cellpadding="2" cellspacing="0" width="100%">
+    <tbody>
+    <tmpl_loop users_loop>
+    <tr <tmpl_if __ODD__>class="odd"</tmpl_if>>
+        <td><img src="^Extras;/wobject/HelpDesk/users.gif"></td>
+        <td><tmpl_var username></td>
+        <td>
+            <a href="javascript:void(0);" class="userListLink" id="user~<tmpl_var userId>"><img src="^Extras;/wobject/HelpDesk/add.gif" style="border-style:none;" alt="Assign to Ticket" title="Assign To Ticket" id="img~<tmpl_var userId>" /></a>
+        </td>
+    </tr>
+    </tmpl_loop>
+    </tbody>
+</table>
+</div>
+</tmpl_if>
+</tmpl_if>
+
+<script type="text/javascript">
+    
+    YAHOO.util.Event.onDOMReady(function() {
+        var setAssignment = function(o) {
+            var target = YAHOO.util.Event.getTarget(o);
+            var id     = target.id;
+            var parts  = id.split("~");
+
+            var setAssignmentUrl   = '<tmpl_var url_setAssignment>' + ";assignedTo=" + parts[1];
+            var oCallback = {
+                success: function(o) {
+                    var response = eval('(' + o.responseText + ')');
+                    if(response.hasError){
+                        var errorString = '';
+                        for(var i=0; i < response.errors.length; i++) {
+                            errorString += response.errors[i];
+                        }
+                        alert(errorString);
+                    }
+                    else {
+                        var assignedTo         = YAHOO.util.Dom.get("assignedTo");
+                        assignedTo.innerHTML   = response.assignedTo;
+                        var dateAssigned       = YAHOO.util.Dom.get("dateAssigned");
+                        dateAssigned.innerHTML = response.dateAssigned;
+                        var assignedBy         = YAHOO.util.Dom.get("assignedBy");
+                        assignedBy.innerHTML   = response.assignedBy;
+                        window.assignDialog.hide();
+                    }
+                }
+            };
+            YAHOO.util.Connect.asyncRequest('GET', setAssignmentUrl, oCallback);
+        }
+        
+        //Set listeners on all the links
+        var linkList = YAHOO.util.Dom.getElementsByClassName("userListLink",'a','userList_div');
+        for(var i = 0; i < linkList.length; i++) {
+            YAHOO.util.Event.addListener(linkList[i],'click',setAssignment);
+        }
+
+    });
+</script>    
+
+

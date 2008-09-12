@@ -1,0 +1,21 @@
+#title=Default Manage Meta Data Template
+#namespace=HelpDesk/manageMeta
+#assetId=HELPDESK00000000000005
+
+<h1>Manage Meta Data</h1>
+
+<p>
+   <a href="<tmpl_var url_editMetaField>">Add a Help Desk Meta Field</a>
+   &nbsp;&bull;&nbsp;
+   <a href="<tmpl_var url_viewTickets>">Back To Tickets</a>
+</p>
+
+<tmpl_if hasMetaFields>
+<tmpl_loop fields_loop>
+<div>
+   <tmpl_var icon_delete><tmpl_var icon_edit><tmpl_var icon_moveUp><tmpl_var icon_moveDown>&nbsp;<tmpl_var metaFieldLabel>
+</div>
+</tmpl_loop>
+<tmpl_else>
+  You do not have any metadata fields to display
+</tmpl_if>

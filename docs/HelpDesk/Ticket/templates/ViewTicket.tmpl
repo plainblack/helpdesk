@@ -1,0 +1,544 @@
+#title=ViewTicket
+#namespace=Ticket/view
+#assetId=TICKET0000000000000002
+<tmpl_if session.var.adminOn>
+	<tmpl_var controls>
+</tmpl_if>
+
+<tmpl_if callerIsTicketMgr>
+<script type="text/javascript">
+    //This is here for viewing tickets directly from their URL and not through the ticket manager
+    var assignDialog = null;
+
+    YAHOO.util.Event.onDOMReady(function () {
+
+        /************************  DATA TABLE LOADER   *************************/
+        
+        function loadDataTable ( oArgs ) {
+            var url    = '<tmpl_var url_ticketView>';
+            var oCallback = {
+                success: function(o) {
+                    YAHOO.plugin.Dispatcher.process( "<tmpl_var datatable_id>", o.responseText );
+                },
+                failure: function(o) {}
+            };
+            var request = YAHOO.util.Connect.asyncRequest('GET', url, oCallback); 
+        };
+
+        YAHOO.util.Event.addListener("return",'click',loadDataTable);
+    });
+</script>
+</tmpl_if>
+
+<tmpl_if canPost>
+<link rel="stylesheet" type="text/css" href="^Extras;yui/build/fonts/fonts-min.css" />
+<link rel="stylesheet" type="text/css" href="^Extras;yui/build/button/assets/skins/sam/button.css" />
+<link rel="stylesheet" type="text/css" href="^Extras;yui/build/container/assets/skins/sam/container.css" />
+
+<script type="text/javascript" src="^Extras;yui/build/utilities/utilities.js"></script>
+<script type="text/javascript" src="^Extras;yui/build/button/button-min.js"></script>
+<script type="text/javascript" src="^Extras;yui/build/container/container-min.js"></script>
+<script type="text/javascript" src="^Extras;yui/build/menu/menu-min.js"></script>
+<script type="text/javascript" src="^Extras;yui/build/resize/resize-beta.js"></script>
+<script type="text/javascript" src="^Extras;wobject/HelpDesk/yui-bubbling/build/dispatcher/dispatcher-min.js"></script>
+
+<script type="text/javascript">
+    YAHOO.util.Event.onDOMReady(function() {
+        
+        /************************  FILE UPLOADER   *************************/
+
+        var uploadHandler = function (o) {
+            var postFileUrl    = '<tmpl_var url_postFile>';
+            var listFileUrl    = '<tmpl_var url_listFile>'
+            var oCallback = {
+                upload: function(o) {
+                    YAHOO.util.Dom.setStyle('indicator','visibility','hidden');
+                    var response = eval('(' + o.responseText + ')');
+                    if(response.hasError){
+                        var errorString = '';
+                        for(var i=0; i < response.errors.length; i++) {
+                            errorString += response.errors[i];
+                        }
+                        alert(errorString);
+                    }
+                    else {
+                        YAHOO.util.Connect.asyncRequest('GET', listFileUrl, {
+                            success: function (o) {
+                                var relatedFiles = YAHOO.util.Dom.get('relatedFiles');
+                                relatedFiles.innerHTML = o.responseText;
+                                var attachment = YAHOO.util.Dom.get('attachment_id');
+                                attachment.value = '';
+                            },
+                            failure: function(o) {}
+                        });
+                    }   
+                }
+            };
+            YAHOO.util.Dom.setStyle('indicator', 'visibility', 'visible');
+            //the second argument of setForm is crucial which tells Connection Manager this is an file upload form
+            YAHOO.util.Connect.setForm('fileUploadForm', true);
+            YAHOO.util.Connect.asyncRequest('POST', postFileUrl, oCallback);
+		};
+
+        YAHOO.util.Event.addListener("attachment_id",'change', uploadHandler);
+
+
+        /************************  POST COMMENTS   *************************/
+        var postComment = function (o) {
+            var postCommentUrl    = '<tmpl_var url_postComment>';
+            var getCommentsUrl    = '<tmpl_var url_getComment>';
+            var oCallback = {
+                success: function(o) {
+                    var response = eval('(' + o.responseText + ')');
+                    if(response.hasError){
+                        var errorString = '';
+                        for(var i=0; i < response.errors.length; i++) {
+                            errorString += response.errors[i];
+                        }
+                        alert(errorString);
+                    }
+                    else {
+                        YAHOO.util.Connect.asyncRequest('GET', getCommentsUrl, {
+                            success: function (o) {
+                                YAHOO.util.Dom.get("comments").innerHTML = o.responseText;
+                                YAHOO.util.Dom.get("commentsForm").reset();
+                                var averageRatingImg   = YAHOO.util.Dom.get("averageRatingImg");
+                                averageRatingImg.src   = response.averageRatingImage;
+                                averageRatingImg.title = response.averageRating;
+                                averageRatingImg.alt   = response.averageRating;
+                            },
+                            failure: function(o) {}
+                        });
+                    }   
+                },
+                failure: function(o) {}
+            };
+            YAHOO.util.Connect.setForm('commentsForm');
+            YAHOO.util.Connect.asyncRequest('POST', postCommentUrl, oCallback);
+		};
+
+        YAHOO.util.Event.addListener("commentsBtn",'click', postComment);
+    });
+</script>
+</tmpl_if>
+
+<tmpl_if canEdit>
+<script type="text/javascript">
+    YAHOO.util.Event.onDOMReady(function() {
+
+        //Function used to toggle the solution summary
+        var toggleSolutionRow = function() {
+            var ticketStatus = YAHOO.util.Dom.get("ticketStatus").innerHTML;
+
+            if(ticketStatus.toLowerCase() == "closed") {
+                YAHOO.util.Dom.setStyle('solutionRow', 'display', '');
+            }
+            else {
+                YAHOO.util.Dom.setStyle('solutionRow', 'display', 'none');
+            }
+        }
+        
+        /************************  ASSIGN DIALOG   *************************/
+
+        //Dialog for user search
+        var findUsers = function(o) {
+            var userSearchUrl = '<tmpl_var url_userSearch>';
+            var oCallback = {
+                success: function(o) {
+                    YAHOO.util.Dom.setStyle('userSearchIndicator','display','none');
+                    var userList = YAHOO.util.Dom.get('userList');
+                    YAHOO.plugin.Dispatcher.process( "userList", o.responseText );
+                    //userList.innerHTML = o.responseText;   
+                },
+                failure: function(o) {}
+            };            
+            YAHOO.util.Dom.setStyle('userSearchIndicator', 'display', '');
+            YAHOO.util.Connect.setForm("userSearchForm");
+            YAHOO.util.Connect.asyncRequest('POST', userSearchUrl, oCallback);
+        }
+
+        window.assignDialog = new YAHOO.widget.Dialog("assignDialog", {
+            width               : "350px", 
+            fixedcenter         : true, 
+            visible             : false,  
+            constraintoviewport : true,
+            buttons             : [],
+            postmethod          : "manual",
+            hideaftersubmit     : false
+        });
+
+        // Render the Dialog
+        window.assignDialog.render();
+        window.assignDialog.focusFirst();
+
+        var showAssignDialog = function (o) {
+            var ticketStatus = YAHOO.util.Dom.get("ticketStatus");
+            if(ticketStatus.innerHTML == "Closed") {
+                alert("You cannot assign a closed ticket.  Please reopen the ticket and try again");
+            }
+            else {
+                window.assignDialog.show();
+            }
+        }
+        
+        YAHOO.util.Event.addListener("assignLink",'click', showAssignDialog, assignDialog, true);
+        YAHOO.util.Event.addListener("searchBtn",'click', findUsers);
+        
+        /************************  SOLUTION DIALOG   *************************/
+        
+        var handleSolutionSubmit = function(o) {
+            var postSolutionUrl = '<tmpl_var url_postSolution>';
+            var oCallback = {
+                success: function(o) {
+                    var response = eval('(' + o.responseText + ')');
+                    if(response.hasError){
+                        var errorString = '';
+                        for(var i=0; i < response.errors.length; i++) {
+                            errorString += response.errors[i];
+                        }
+                        alert(errorString);
+                    }
+                    else {
+                        var solutionSummary       = YAHOO.util.Dom.get("solution");
+                        solutionSummary.innerHTML = response.solutionSummary;
+                    }
+                }
+            };
+            YAHOO.util.Connect.setForm("postSolutionForm");
+            YAHOO.util.Connect.asyncRequest('POST', postSolutionUrl, oCallback);
+            toggleSolutionRow();
+            this.cancel();
+        }
+
+        var solutionDialog = new YAHOO.widget.Dialog("solutionDialog", {
+            width               : "500px", 
+            fixedcenter         : true, 
+            visible             : false,  
+            constraintoviewport : true,
+            close               : false,
+            buttons             : [
+                { text:"Submit", handler:handleSolutionSubmit, isDefault:true }
+            ]
+        });
+
+        // Render the Dialog
+        solutionDialog.render();
+
+        /************************  CHANGE STATUS   *************************/
+
+        var changeStatus = function(o) {
+            var target = YAHOO.util.Event.getTarget(o);
+            var id     = target.id;
+            var parts  = id.split("~");
+
+            var changeStatusUrl   = '<tmpl_var url_changeStatus>' + ";status=" + parts[1];
+            var oCallback = {
+                success: function(o) {
+                    var response = eval('(' + o.responseText + ')');
+                    if(response.hasError){
+                        var errorString = '';
+                        for(var i=0; i < response.errors.length; i++) {
+                            errorString += response.errors[i];
+                        }
+                        alert(errorString);
+                    }
+                    else {
+                        var ticketStatus       = YAHOO.util.Dom.get("ticketStatus");
+                        ticketStatus.innerHTML = response.status;
+                        if(ticketStatus.innerHTML.toLowerCase() == "closed") {
+                            solutionDialog.show();
+                        }
+                        else {
+                            toggleSolutionRow();
+                        }
+                    }
+                }
+            };
+            YAHOO.util.Connect.asyncRequest('GET', changeStatusUrl, oCallback);
+        }
+
+        //Add listeners to change status menu links
+        var linkList = YAHOO.util.Dom.getElementsByClassName('yuimenuitemlabel','a','changeStatus_div');
+        for(var i = 0; i < linkList.length; i++) {
+            YAHOO.util.Event.addListener(linkList[i],'click',changeStatus);
+        }
+
+        /************************  INITIALIZE CLICK MENUS   *************************/
+
+        var menus = YAHOO.util.Dom.getElementsByClassName('ticket-menu');
+        for (var i = menus.length; i--; ) {
+            var menu = menus[i];
+            if (menu.initialized) {
+                continue;
+            }
+            menu.initialized = true;
+            var ctx = YAHOO.util.Dom.getPreviousSibling(menu);
+            var myMenu = new YAHOO.widget.Menu(menu, {
+                context  : [ctx, "tl", "bl"]
+            });
+            myMenu.render();
+            YAHOO.util.Event.addListener(ctx, "click", function (e, menu) {
+                YAHOO.util.Event.preventDefault(e);
+                menu.align("tl", "bl");
+                menu.show();
+            }, myMenu);
+        }
+    });
+</script>
+</tmpl_if>
+
+<style>
+    legend {
+        font-weight: bold;    
+    }
+    .ticket_title {
+        background: #d8d8d8 url(^Extras;yui/build/assets/skins/sam/sprite.png) repeat-x;
+        border: solid #a3a3a3;
+        border-width: 0 1px 0;
+        font-family: arial;
+        font-weight: bold;
+        font-size: 14pt;
+    }
+    .ticket_body {
+        background: #FFFFFF;
+        border: 1px solid #000000;
+    }
+    .ticket_desc {
+        background: #d8d8d8;
+    }
+
+    .userArea {
+        font-family: arial;
+        font-size: 9pt;
+        color: black;
+        background-color: white;
+        overflow: auto;
+        height: 310px;   
+    }
+    .searchBtn {
+        background-color:silver;
+        color:white;
+        border:solid gray 1px;
+        text-decoration:none;
+        font-weight:bold;	
+        text-align:center;
+        cursor:pointer;
+        font-size:9pt;
+    }
+    .inputBox {
+        border:solid gray 1px;
+        font-size:9pt;
+    }
+    .grayArea {
+        background-color:#F2F2F2;
+        border:solid #E8E8E8 1px;
+        padding:3px;
+        -moz-box-sizing:border-box;
+    }
+    .whiteArea {
+        font-family: arial;
+        font-size: 9pt;
+        color: black;
+        background-color: white;
+    }
+    .solutionArea {
+        font-family: arial;
+        font-size: 9pt;
+        color: black;
+        background-color: white;
+        overflow: auto;
+        height: 210px;   
+    }
+    #userList_div {
+        overflow: auto;
+        width: 100%;
+        height: auto;
+        font-family: arial;
+        font-size: 10pt;
+        border: solid #CACACA 1px;
+    }
+
+    * html #userList_div {
+        overflow: hidden;
+        overflow-y: auto;
+    }
+
+    #userList_div img {
+        padding-right: 10px;
+        padding-left: 10px;
+    }
+
+    #userList_div td {
+        background-color: #F2F2F2;
+        border-top: solid #F9F9F9 1px;
+        border-bottom: solid #E0E0E0 1px;
+        text-align: left;
+        vertical-align: top;
+    }
+
+    #userList_div tr.odd td {
+        background-color: #EAEAEA;
+    }
+
+</style>
+
+<tmpl_if callerIsTicketMgr>
+<a href="javascript:void(0);" id="return">Back To Tickets</a> <br />
+<tmpl_else>
+<a href="<tmpl_var url_ticketMgr>">View All Tickets</a> <br />
+</tmpl_if>
+
+<table border="0" cellpadding="2" cellspacing="0" width="80%" style="border:1px solid black;">
+<tbody>
+<tr class="ticket_title">
+    <td><tmpl_var title>&nbsp;&nbsp(#<tmpl_var ticketId>)</td>
+</tr>
+<tr class="ticket_body">
+   <td>
+    <table border="0" cellpadding="0" cellspacing="0" width="100%">
+    <tbody>
+        <tr>
+            <td width="70%" valign="top">
+                <table width="100%" border="0" cellpadding="0" cellspacing="0">
+                <tbody>
+                <tr><td><fieldset><legend>Issue</legend><tmpl_var synopsis></fieldset><td></tr>
+                <tr id="solutionRow" style="<tmpl_var solutionStyle>">
+                    <td>
+                        <fieldset>
+                            <legend>Solution Summary</legend>
+                            <div id="solution"></div>
+                        </fieldset>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <fieldset>
+                            <legend>Comments</legend>
+                            <div id="comments"><tmpl_var comments></div>
+                            <tmpl_if canPost>
+                            <br />
+                            <div id="commentForm">
+                                <tmpl_var comments_form_start>
+                                <tmpl_var comments_form_comment><br />
+                                <tmpl_var comments_form_rating><input type="button" value="Post" id="commentsBtn">
+                                <tmpl_var comments_form_end>
+                            </div>
+                            </tmpl_if>
+                        </fieldset>
+                    </td>
+                </tr>
+                </tbody>
+                </table>
+            </td>
+            <td width="30%" valign="top">
+                <table width="100%" border="0" cellpadding="0" cellspacing="0">
+                <tbody>
+                <!-- Details -->
+                <tr>
+                    <td>
+                        <fieldset>
+                            <legend>Details</legend>
+                            <table width="300" border="0" cellpadding="0" cellspacing="0">
+                            <tbody>
+                                <tr>
+                                    <td>Ticket Status</td>
+                                    <td id="ticketStatus"><tmpl_var ticketStatus></td>
+                                    <td><tmpl_if canEdit>
+                                        <div style="margin: 0pt 0px; float: left;" id="changeStatus_div">
+                                            <div class="yui-skin-sam ticket-menu-div">
+                                                <a href="javascript: void(0);" id="statusLink">change</a>
+                                                <div class="yuimenu ticket-menu">
+                                                    <div class="bd">
+                                                        <ul class="first-of-type">
+                                                            <tmpl_loop status_loop>
+                                                            <li class="yuimenuitem"><a class="yuimenuitemlabel" href="javascript:void(0);" id="status~<tmpl_var status_key>"><tmpl_var status_value></a></li>
+                                                            </tmpl_loop>
+                                                        </ul>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <tmpl_else>
+                                        &nbsp;
+                                        </tmpl_if>
+                                    </td>
+                                </tr>
+                                <tr><td>Rating</td><td id="averageRating"><img src="<tmpl_var averageRating_src>" id="averageRatingImg" border="0" style="vertical-align: middle;" alt="<tmpl_var averageRating>" title="<tmpl_var averageRating>"></td><td>&nbsp;</td></tr>
+                                <tr><td>Submitted By</td><td><tmpl_var createdBy></td><td>&nbsp;</td></tr>
+                                <tr><td>Date Submitted</td><td><tmpl_var creationDate></td><td>&nbsp;</td></tr>
+                                <tr>
+                                    <td>Assigned To</td>
+                                    <td id="assignedTo"><tmpl_var assignedTo></td>
+                                    <td><tmpl_if canEdit><a href="javascript: void(0);" id="assignLink">change</a><tmpl_else>&nbsp;</tmpl_if></td>
+                                </tr>
+                                <tr><td>Date Assigned</td><td id="dateAssigned"><tmpl_var dateAssigned></td><td>&nbsp;</td></tr>
+                                <tr><td>Assigned By</td><td id="assignedBy"><tmpl_var assignedBy></td><td>&nbsp;</td></tr>
+                                <tmpl_loop meta_field_loop>
+                                <tr><td><tmpl_var meta_field_label></td><td><tmpl_var meta_field_value></td><td>&nbsp;</td></tr>
+                                </tmpl_loop>
+                            </tbody>
+                            </table>
+                        </fieldset>
+                    </td>
+                </tr>
+                <!-- Related Files -->
+                <tmpl_if hasFilesOrCanPost>
+                <tr>
+                    <td>
+                        <fieldset>
+                            <legend>Related Files</legend>
+                            <div id="relatedFiles">
+                            <tmpl_var relatedFiles>
+                            </div>
+                            <tmpl_if canPost>
+                            <table width="300" border="0" cellpadding="0" cellspacing="0">
+                                <tbody>
+                                <tr>
+                                    <td>
+                                        <tmpl_var file_form_start>
+                                        <input type="file" id="attachment_id" name="attachment">
+                                        <div  style="visibility:hidden; margin-bottom:1.5em;" id="indicator">Uploading... <img src="^Extras;wobject/HelpDesk/indicator.gif"/></div>    
+                                        <tmpl_var file_form_end>
+                                    </td>
+                                </tr>
+                                </tbody>
+                            </table>
+                            </tmpl_if>
+                        </fieldset>
+                    </td>
+                </tr>
+                </tmpl_if>
+                </tbody>
+                </table>
+            </td>
+        </tr>
+    </tbody>
+    </table>
+   </td>
+</tr>
+</tbody>
+</table>
+
+<tmpl_if canPost>
+<div id="assignDialog"> 
+    <tmpl_var userSearch_form_start>
+    <div class="grayArea">
+        <b>Search for user: </b><br /><input type="text" name="search" value="" size="20" class="inputBox" id="searchBox" />
+        <input type="button" value="Search" class="searchBtn" id="searchBtn" />
+    </div>
+    <div  style="display:none; margin-bottom:1.5em;" id="userSearchIndicator">Searching... <img src="^Extras;wobject/HelpDesk/indicator.gif"/></div>    
+    <div id="userList" class="userArea">
+        <br /><br /><br /><br /><br /><br /><br /><br />
+    </div>
+    <tmpl_var userSearch_form_end>
+</div>
+</tmpl_if>
+
+<tmpl_if canEdit>
+<div id="solutionDialog">
+    <tmpl_var solution_form_start>
+    <div class="whiteArea"><b>Solution Summary</b><br />Briefly summarize the solution that enables this ticket to be closed.</div>
+    <div id="solutionForm" class="solutionArea"><textarea id="solution_formId" name="solution" rows="#" cols="#" style="width: 490px; height: 200px;"></textarea></div>
+    <tmpl_var solution_form_end>
+</div>
+</tmpl_if>

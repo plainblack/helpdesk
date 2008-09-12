@@ -1,0 +1,79 @@
+#title=Help Desk Main View
+#namespace=HelpDesk/view
+#assetId=HELPDESK00000000000001
+<tmpl_if session.var.adminOn>
+    <p><tmpl_var controls></p>
+</tmpl_if>
+
+<tmpl_if displayTitle>
+    <h2><tmpl_var title></h2>
+</tmpl_if>
+
+<tmpl_if description>	
+    <p><tmpl_var description></p>
+</tmpl_if>
+
+
+<div id="container">
+<tmpl_if canPost><a href="<tmpl_var url_addTicket>">New Support Request +</a></tmpl_if><tmpl_if canEditAndPost>&nbsp;&bull;&nbsp;</tmpl_if><tmpl_if canEdit><a href="<tmpl_var url_manageMetaData>">Manage Meta Fields</a></tmpl_if><br />
+
+</div>
+
+<script type="text/javascript">
+var tabView = new YAHOO.widget.TabView();
+
+var assignDialog = null;
+
+YAHOO.example.init = function() {
+    YAHOO.plugin.Dispatcher.delegate (new YAHOO.widget.Tab({
+        label: 'Open Tickets',
+        cacheData: false,
+        dataSrc: '<tmpl_var url_viewAll>',
+        active: true
+    }), tabView);
+
+    YAHOO.plugin.Dispatcher.delegate (new YAHOO.widget.Tab({
+        label: 'My Tickets',
+        cacheData: false,
+        dataSrc: '<tmpl_var url_viewMy>',
+        active: false
+    }),tabView);
+
+    YAHOO.plugin.Dispatcher.delegate (new YAHOO.widget.Tab({
+        label: 'Search',
+        cacheData: false,
+        dataSrc: '<tmpl_var url_search>'
+    }), tabView);
+
+    YAHOO.util.Event.onContentReady('container', function() {
+        tabView.appendTo('container');
+    });
+
+};
+YAHOO.example.init();
+</script>
+
+
+
+~~~
+
+<link rel="stylesheet" type="text/css" href="^Extras;yui/build/fonts/fonts-min.css" />
+<link rel="stylesheet" type="text/css" href="^Extras;yui/build/tabview/assets/skins/sam/tabview.css" />
+<link rel="stylesheet" type="text/css" href="^Extras;yui/build/datatable/assets/skins/sam/datatable.css" />
+
+<script type="text/javascript" src="^Extras;yui/build/utilities/utilities.js"></script>
+<script type="text/javascript" src="^Extras;yui/build/json/json-min.js"></script>
+<script type="text/javascript" src="^Extras;yui/build/tabview/tabview-min.js"></script>
+<script type="text/javascript" src="^Extras;yui/build/datasource/datasource-beta-min.js"></script>
+<script type="text/javascript" src="^Extras;yui/build/datatable/datatable-beta-min.js"></script>
+<script type="text/javascript" src="^Extras;wobject/HelpDesk/yui-bubbling/build/dispatcher/dispatcher-min.js"></script>
+
+<!--begin custom header content for this example-->
+<style type="text/css">
+.yui-navset div.loading div {
+    background:url(^Extras;yui/examples/tabview/assets/assets/loading.gif) no-repeat center center;
+    height:8em; /* hold some space while loading */
+}
+
+#example-canvas h2 {padding: 0 0 .5em 0;}
+</style>
