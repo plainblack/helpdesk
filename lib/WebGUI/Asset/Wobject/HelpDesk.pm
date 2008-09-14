@@ -258,7 +258,7 @@ sub getStatus {
     unless ($self->{_status}) {
         tie my %hash, "Tie::IxHash";
         %hash = (
-            'new'          => 'New',
+            'pending'      => 'Pending',
             'acknowledged' => 'Acknowledged',
             'feedback'     => 'Feedback Requested',
             'confirmed'    => 'Confirmed',
@@ -513,7 +513,7 @@ sub www_getAllTickets {
     my $whereClause = q{Ticket.ticketStatus <> 'closed'};
     if($filter eq "myTickets") {
         my $userId = $session->user->userId;
-        $whereClause .= qq{ and Ticket.assignedTo='$userId'};
+        $whereClause .= qq{ and (Ticket.assignedTo='$userId' or asset.createdBy='$userId') };
     }
 
     my $rules;

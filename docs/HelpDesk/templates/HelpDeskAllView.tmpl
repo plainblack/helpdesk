@@ -11,15 +11,12 @@
 <script type="text/javascript">
 
     YAHOO.util.Event.onDOMReady(function () {
-        var DataSource = YAHOO.util.DataSource,
-            DataTable  = YAHOO.widget.DataTable,
-            Paginator  = YAHOO.widget.Paginator;
-
-        var mySource = new DataSource('<tmpl_var url_pageData>');
-        mySource.responseType   = DataSource.TYPE_JSON;
-        mySource.responseSchema = {
-            resultsList : 'tickets',
-            fields      : [
+        var hd = new WebGUI.HelpDesk({
+            datasource : '<tmpl_var url_pageData>',
+            container  : 'ticketList',
+            dtContainer: 'dt',
+            view       : 'all',
+            fields     : [
                 { key: 'ticketId' },
                 { key: 'title' },
                 { key: 'createdBy' },
@@ -28,166 +25,16 @@
                 { key: 'ticketStatus' },
                 { key: 'url'}
             ],
-            metaFields  : { totalRecords: 'totalRecords' }
-        };
-
-        function loadTicket ( oArgs ) {
-            var target = oArgs.target;
-
-            var elCell = this.getTdEl(target);
-            if(elCell) {
-                var oRecord = this.getRecord(elCell);
-                var url     = oRecord.getData('url') + "?func=view;caller=ticketMgr;view=all";
-                if(url) {
-                    // Create callback object for the request
-                    var oCallback = {
-                        success: function(o) {
-                            var ticketList = document.getElementById("ticketList");
-                            //ensure no memory leaks  
-                            var destroyer = YAHOO.plugin.Dispatcher.destroyer;
-                            if(destroyer != null) {
-                                destroyer.subscribe (function(el, config){
-                                    myTable.destroy();
-                                });
-                            }
-                            YAHOO.plugin.Dispatcher.process( "ticketList", o.responseText );
-                        },
-                        failure: function(o) {}
-                    };
-                    var request = YAHOO.util.Connect.asyncRequest('GET', url, oCallback); 
-                }
-            }
-            else {
-                alert("Could not get table cell for " + target);
-            }
-
-        };
-        
-
-        var formatTitle
-            = function ( elCell, oRecord, oColumn, orderNumber ) {
-                elCell.innerHTML = '<a href="javascript:void(0);" id="ticket_' + oRecord.getData( 'ticketId' ) + '">'
-                + oRecord.getData( 'title' )
-                + '</a>'
-                ;
-        };
-        
-        var buildQueryString = function ( state, dt ) {
-            var query = ";recordOffset=" + state.pagination.recordOffset 
-                + ';orderByDirection=' + ((state.sorting.dir === YAHOO.widget.DataTable.CLASS_ASC) ? "ASC" : "DESC")
-                + ';rowsPerPage=' + state.pagination.rowsPerPage
-                + ';orderByColumn=' + state.sorting.key
-                ;
-            return query;
-        };
-
-
-        var myPaginator = new Paginator({
-            containers         : ['paging_top','paging_bottom'],
-            pageLinks          : 5,
-            rowsPerPage        : 10,
-            rowsPerPageOptions : [10,25,50,100],
-            template           : "<strong>{CurrentPageReport}</strong> {PreviousPageLink} {PageLinks} {NextPageLink} {RowsPerPageDropdown}"
+            columns    : [ 
+                { key: 'ticketId', label: "Ticket Id", sortable: true },
+                { key: 'title', label: "Subject", sortable: true, formatter: WebGUI.HelpDesk.formatTitle },
+                { key: 'createdBy', label: "Submitted By", sortable: true },
+                { key: 'creationDate', label: "Submitted On", sortable: true },
+                { key: 'assignedTo', label: "Assigned To", sortable: true },
+                { key: 'ticketStatus', label: "Status", sortable: true }
+            ],
+            p_containers : ['paging_top','paging_bottom']
         });
-
-        // Custom function to handle pagination requests
-        var handlePagination = function (state,dt) {
-            var sortedBy  = dt.get('sortedBy');
-            // Define the new state
-            var newState = {
-                startIndex: state.recordOffset, 
-                sorting: {
-                    key: sortedBy.key,
-                    dir: ((sortedBy.dir === YAHOO.widget.DataTable.CLASS_ASC) ? "asc" : "desc")
-                },
-                pagination : { // Pagination values
-                    recordOffset: state.recordOffset, // Go to the proper page offset
-                    rowsPerPage: state.rowsPerPage // Return the proper rows per page
-                }
-            };
-
-            // Create callback object for the request
-            var oCallback = {
-                success: dt.onDataReturnSetRows,
-                failure: dt.onDataReturnSetRows,
-                scope: dt,
-                argument: newState // Pass in new state as data payload for callback function to use
-            };
-        
-            // Send the request
-            dt.getDataSource().sendRequest(buildQueryString(newState, dt), oCallback);
-        };
-
-        var defaultSortedBy = { 
-            "key" : "creationDate",
-            "dir" : YAHOO.widget.DataTable.CLASS_DESC
-        };
-
-        var myTableConfig = {
-            initialRequest         : ';recordOffset=0',
-            generateRequest        : buildQueryString,
-            paginationEventHandler : handlePagination,
-            paginator              : myPaginator,
-            sortedBy               : defaultSortedBy
-        };
-
-        var myColumnDefs = [ 
-            { key: 'ticketId', label: "Ticket Id", sortable: true },
-            { key: 'title', label: "Subject", sortable: true, formatter: formatTitle },
-            { key: 'createdBy', label: "Submitted By", sortable: true },
-            { key: 'creationDate', label: "Submitted On", sortable: true },
-            { key: 'assignedTo', label: "Assigned To", sortable: true },
-            { key: 'ticketStatus', label: "Status", sortable: true }
-        ];
-
-        
-        // Initialize the data table
-        var myTable = new DataTable('dt',myColumnDefs,mySource,myTableConfig);
-        myTable.subscribe("rowMouseoverEvent", myTable.onEventHighlightRow);
-        myTable.subscribe("rowMouseoutEvent", myTable.onEventUnhighlightRow);
-        myTable.subscribe("cellClickEvent",loadTicket);
-        
-        //ensure no memory leaks
-        var destroyer = YAHOO.plugin.Dispatcher.destroyer;
-        if(destroyer != null) {
-            destroyer.subscribe (function(el, config){
-                myTable.destroy();
-            });
-        }
-    
-        // Override function for custom server-side sorting
-        myTable.sortColumn = function(oColumn,sDir) {
-            // Default ascending
-            var sDir = "desc";
-
-            // If already sorted, sort in opposite direction
-            if(oColumn.key === this.get("sortedBy").key) {
-                sDir = (this.get("sortedBy").dir === YAHOO.widget.DataTable.CLASS_ASC) ? "desc" : "asc";
-            }
-
-            // Define the new state
-            var newState = {
-                startIndex: 0,
-                sorting: { // Sort values
-                    key: oColumn.key,
-                    dir: (sDir === "asc") ? YAHOO.widget.DataTable.CLASS_ASC : YAHOO.widget.DataTable.CLASS_DESC
-                },
-                pagination : { // Pagination values
-                    recordOffset: 0, // Default to first page when sorting
-                    rowsPerPage: this.get("paginator").getRowsPerPage() // Keep current setting
-                }
-            };
-
-            // Create callback object for the request
-            var oCallback = {
-                success: this.onDataReturnSetRows,
-                failure: this.onDataReturnSetRows,
-                scope: this,
-                argument: newState // Pass in new state as data payload for callback function to use
-            };
-        
-            // Send the request
-            this.getDataSource().sendRequest(buildQueryString(newState, this), oCallback);
-        };    
+        hd.initDataTable();
     });
 </script>
