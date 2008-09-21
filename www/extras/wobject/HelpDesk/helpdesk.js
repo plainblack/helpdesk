@@ -47,16 +47,6 @@ WebGUI.HelpDesk = function (configs) {
     ///////////////////////////////////////////////////////////////
     
     //***********************************************************************************
-    WebGUI.HelpDesk.buildQueryString = function ( state, dt ) {
-        var query = ";recordOffset=" + state.pagination.recordOffset 
-            + ';orderByDirection=' + ((state.sorting.dir === DataTable.CLASS_ASC) ? "ASC" : "DESC")
-            + ';rowsPerPage=' + state.pagination.rowsPerPage
-            + ';orderByColumn=' + state.sorting.key
-        ;
-        return query;
-    };
-    
-    //***********************************************************************************
     // Custom function to handle pagination requests
     WebGUI.HelpDesk.handlePagination = function (state,dt) {
         var sortedBy  = dt.get('sortedBy');
@@ -127,9 +117,14 @@ WebGUI.HelpDesk = function (configs) {
     //  is actually passed to the method as it's second parameter.
     //
     WebGUI.HelpDesk.loadTicket = function ( evt, obj ) {
-        YAHOO.util.Event.stopEvent(evt.event);
-
         var target = evt.target;
+        
+        //let the default action happen if the user clicks the last reply column
+        var links = YAHOO.util.Dom.getElementsByClassName ("profile_link","a",target);
+        
+        if (links.length == 0) {
+            YAHOO.util.Event.stopEvent(evt.event);
+        }
 
         var elCell = this.getTdEl(target);
         if(elCell) {
@@ -163,7 +158,25 @@ WebGUI.HelpDesk = function (configs) {
     //              Public Instance Methods
     ///////////////////////////////////////////////////////////////
 
+    //***********************************************************************************
+    this.getDataTable = function() {
+        if(!this.helpdesk) {
+            return {};
+        }
+        return this.helpdesk;
+    };    
 
+    //***********************************************************************************
+    this.getDefaultSort = function() {
+        if(this._configs.defaultSort) {
+            return this._configs.defaultSort;
+        }
+        return {
+            "key" : "creationDate",
+            "dir" : DataTable.CLASS_DESC
+        };
+    };
+    
     //***********************************************************************************
     // Override this method if you want pagination to work differently    
     this.getPaginator = function () {
@@ -196,7 +209,7 @@ WebGUI.HelpDesk = function (configs) {
                 generateRequest        : WebGUI.HelpDesk.buildQueryString,
                 paginationEventHandler : WebGUI.HelpDesk.handlePagination,
                 paginator              : this.getPaginator(),
-                sortedBy               : this._getDefaultSort()
+                sortedBy               : this.getDefaultSort()
             }
         );
         this.helpdesk.subscribe("rowMouseoverEvent", this.helpdesk.onEventHighlightRow);
@@ -214,21 +227,6 @@ WebGUI.HelpDesk = function (configs) {
         }   
     };
 
-    ///////////////////////////////////////////////////////////////
-    //              Private Instance Methods
-    ///////////////////////////////////////////////////////////////
-
-    //***********************************************************************************
-    this._getDefaultSort = function() {
-        if(this._configs.defaultSort) {
-            return this._configs.defaultSort;
-        }
-        return {
-            "key" : "creationDate",
-            "dir" : DataTable.CLASS_DESC
-        };
-    };
-
 };
 
 ///////////////////////////////////////////////////////////////
@@ -242,3 +240,28 @@ WebGUI.HelpDesk.formatTitle = function ( elCell, oRecord, oColumn, orderNumber )
         + '</a>'
         ;
 };
+
+//***********************************************************************************
+WebGUI.HelpDesk.formatLastReply = function ( elCell, oRecord, oColumn, orderNumber ) {
+    var lastReplyDate = oRecord.getData('lastReplyDate');
+    if(lastReplyDate) {
+        elCell.innerHTML = oRecord.getData('lastReplyDate')
+            + ' by '+ '<a href="' + getWebguiProperty('pageURL') + "?op=viewProfile;uid=" + oRecord.getData('lastReplyById') + '" class="profile_link">'
+            + oRecord.getData( 'lastReplyBy' )
+            + '</a>';
+    }
+    else {
+        elCell.innerHTML = "";
+    }
+};
+
+//***********************************************************************************
+WebGUI.HelpDesk.buildQueryString = function ( state, dt ) {
+    var query = ";recordOffset=" + state.pagination.recordOffset 
+        + ';orderByDirection=' + ((state.sorting.dir === DataTable.CLASS_ASC) ? "ASC" : "DESC")
+        + ';rowsPerPage=' + state.pagination.rowsPerPage
+        + ';orderByColumn=' + state.sorting.key
+        ;
+    return query;
+};
+

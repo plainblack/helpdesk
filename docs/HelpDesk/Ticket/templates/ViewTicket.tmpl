@@ -5,6 +5,8 @@
 	<tmpl_var controls>
 </tmpl_if>
 
+<link rel="stylesheet" type="text/css" href="^Extras;wobject/HelpDesk/ticket.css" />
+
 <tmpl_if callerIsTicketMgr>
 <script type="text/javascript">
     //This is here for viewing tickets directly from their URL and not through the ticket manager
@@ -38,86 +40,27 @@
 <script type="text/javascript" src="^Extras;yui/build/utilities/utilities.js"></script>
 <script type="text/javascript" src="^Extras;yui/build/button/button-min.js"></script>
 <script type="text/javascript" src="^Extras;yui/build/container/container-min.js"></script>
-<script type="text/javascript" src="^Extras;yui/build/menu/menu-min.js"></script>
 <script type="text/javascript" src="^Extras;yui/build/resize/resize-beta.js"></script>
+<script type="text/javascript" src="^Extras;yui-webgui/build/form/form.js"></script>
 <script type="text/javascript" src="^Extras;wobject/HelpDesk/yui-bubbling/build/dispatcher/dispatcher-min.js"></script>
+<script type="text/javascript" src="^Extras;wobject/HelpDesk/ticket.js"></script>
 
 <script type="text/javascript">
     YAHOO.util.Event.onDOMReady(function() {
-        
+         /************************  HISTORY   *************************/
+        WebGUI.Ticket.historyUrl  = '<tmpl_var url_getHistory>';
+
         /************************  FILE UPLOADER   *************************/
+        WebGUI.Ticket.postFileUrl = '<tmpl_var url_postFile>';
+        WebGUI.Ticket.listFileUrl = '<tmpl_var url_listFile>';
 
-        var uploadHandler = function (o) {
-            var postFileUrl    = '<tmpl_var url_postFile>';
-            var listFileUrl    = '<tmpl_var url_listFile>'
-            var oCallback = {
-                upload: function(o) {
-                    YAHOO.util.Dom.setStyle('indicator','visibility','hidden');
-                    var response = eval('(' + o.responseText + ')');
-                    if(response.hasError){
-                        var errorString = '';
-                        for(var i=0; i < response.errors.length; i++) {
-                            errorString += response.errors[i];
-                        }
-                        alert(errorString);
-                    }
-                    else {
-                        YAHOO.util.Connect.asyncRequest('GET', listFileUrl, {
-                            success: function (o) {
-                                var relatedFiles = YAHOO.util.Dom.get('relatedFiles');
-                                relatedFiles.innerHTML = o.responseText;
-                                var attachment = YAHOO.util.Dom.get('attachment_id');
-                                attachment.value = '';
-                            },
-                            failure: function(o) {}
-                        });
-                    }   
-                }
-            };
-            YAHOO.util.Dom.setStyle('indicator', 'visibility', 'visible');
-            //the second argument of setForm is crucial which tells Connection Manager this is an file upload form
-            YAHOO.util.Connect.setForm('fileUploadForm', true);
-            YAHOO.util.Connect.asyncRequest('POST', postFileUrl, oCallback);
-		};
-
-        YAHOO.util.Event.addListener("attachment_id",'change', uploadHandler);
-
+        YAHOO.util.Event.addListener("attachment_id",'change', WebGUI.Ticket.uploadHandler);
 
         /************************  POST COMMENTS   *************************/
-        var postComment = function (o) {
-            var postCommentUrl    = '<tmpl_var url_postComment>';
-            var getCommentsUrl    = '<tmpl_var url_getComment>';
-            var oCallback = {
-                success: function(o) {
-                    var response = eval('(' + o.responseText + ')');
-                    if(response.hasError){
-                        var errorString = '';
-                        for(var i=0; i < response.errors.length; i++) {
-                            errorString += response.errors[i];
-                        }
-                        alert(errorString);
-                    }
-                    else {
-                        YAHOO.util.Connect.asyncRequest('GET', getCommentsUrl, {
-                            success: function (o) {
-                                YAHOO.util.Dom.get("comments").innerHTML = o.responseText;
-                                YAHOO.util.Dom.get("commentsForm").reset();
-                                var averageRatingImg   = YAHOO.util.Dom.get("averageRatingImg");
-                                averageRatingImg.src   = response.averageRatingImage;
-                                averageRatingImg.title = response.averageRating;
-                                averageRatingImg.alt   = response.averageRating;
-                            },
-                            failure: function(o) {}
-                        });
-                    }   
-                },
-                failure: function(o) {}
-            };
-            YAHOO.util.Connect.setForm('commentsForm');
-            YAHOO.util.Connect.asyncRequest('POST', postCommentUrl, oCallback);
-		};
+        WebGUI.Ticket.postCommentUrl  = '<tmpl_var url_postComment>';
+        WebGUI.Ticket.getCommentsUrl  = '<tmpl_var url_getComment>';
 
-        YAHOO.util.Event.addListener("commentsBtn",'click', postComment);
+        YAHOO.util.Event.addListener("commentsBtn",'click', WebGUI.Ticket.postComment, { form : "commentsForm"});
     });
 </script>
 </tmpl_if>
@@ -125,38 +68,11 @@
 <tmpl_if canEdit>
 <script type="text/javascript">
     YAHOO.util.Event.onDOMReady(function() {
-
-        //Function used to toggle the solution summary
-        var toggleSolutionRow = function() {
-            var ticketStatus = YAHOO.util.Dom.get("ticketStatus").innerHTML;
-
-            if(ticketStatus.toLowerCase() == "closed") {
-                YAHOO.util.Dom.setStyle('solutionRow', 'display', '');
-            }
-            else {
-                YAHOO.util.Dom.setStyle('solutionRow', 'display', 'none');
-            }
-        }
         
         /************************  ASSIGN DIALOG   *************************/
-
-        //Dialog for user search
-        var findUsers = function(o) {
-            var userSearchUrl = '<tmpl_var url_userSearch>';
-            var oCallback = {
-                success: function(o) {
-                    YAHOO.util.Dom.setStyle('userSearchIndicator','display','none');
-                    var userList = YAHOO.util.Dom.get('userList');
-                    YAHOO.plugin.Dispatcher.process( "userList", o.responseText );
-                    //userList.innerHTML = o.responseText;   
-                },
-                failure: function(o) {}
-            };            
-            YAHOO.util.Dom.setStyle('userSearchIndicator', 'display', '');
-            YAHOO.util.Connect.setForm("userSearchForm");
-            YAHOO.util.Connect.asyncRequest('POST', userSearchUrl, oCallback);
-        }
-
+        WebGUI.Ticket.userSearchUrl    = '<tmpl_var url_userSearch>';
+        WebGUI.Ticket.setAssignmentUrl = '<tmpl_var url_setAssignment>';
+        
         window.assignDialog = new YAHOO.widget.Dialog("assignDialog", {
             width               : "350px", 
             fixedcenter         : true, 
@@ -171,22 +87,13 @@
         window.assignDialog.render();
         window.assignDialog.focusFirst();
 
-        var showAssignDialog = function (o) {
-            var ticketStatus = YAHOO.util.Dom.get("ticketStatus");
-            if(ticketStatus.innerHTML == "Closed") {
-                alert("You cannot assign a closed ticket.  Please reopen the ticket and try again");
-            }
-            else {
-                window.assignDialog.show();
-            }
-        }
-        
-        YAHOO.util.Event.addListener("assignLink",'click', showAssignDialog, assignDialog, true);
-        YAHOO.util.Event.addListener("searchBtn",'click', findUsers);
-        
+        YAHOO.util.Event.addListener("assignLink",'click', WebGUI.Ticket.showAssignDialog);
+        YAHOO.util.Event.addListener("unassignLink",'click',WebGUI.Ticket.setAssignment);
+        YAHOO.util.Event.addListener("searchBtn",'click', WebGUI.Ticket.findUsers);
+ 
         /************************  SOLUTION DIALOG   *************************/
-        
-        var handleSolutionSubmit = function(o) {
+        /*
+        var handleSubmit = function(o) {
             var postSolutionUrl = '<tmpl_var url_postSolution>';
             var oCallback = {
                 success: function(o) {
@@ -206,181 +113,73 @@
             };
             YAHOO.util.Connect.setForm("postSolutionForm");
             YAHOO.util.Connect.asyncRequest('POST', postSolutionUrl, oCallback);
-            toggleSolutionRow();
+            WebGUI.Ticket.toggleSolutionRow();
             this.cancel();
         }
+        */ 
 
-        var solutionDialog = new YAHOO.widget.Dialog("solutionDialog", {
+        window.solutionDialog = new YAHOO.widget.Dialog("solutionDialog", {
             width               : "500px", 
             fixedcenter         : true, 
             visible             : false,  
             constraintoviewport : true,
             close               : false,
-            buttons             : [
-                { text:"Submit", handler:handleSolutionSubmit, isDefault:true }
+            buttons             : [{
+                    text      : "Submit",
+                    handler   : {
+                        fn    : WebGUI.Ticket.postComment,
+                        obj   : { form : "postSolutionForm" }
+                    },
+                    isDefault : true
+                },{
+                    text      : "Cancel",
+                    handler   : function() { this.cancel() }
+                }
             ]
         });
 
         // Render the Dialog
-        solutionDialog.render();
+        window.solutionDialog.render();
+
+        WebGUI.Ticket.getFormFieldUrl = '<tmpl_var url_getFormField>';
+        WebGUI.Ticket.saveUrl         = '<tmpl_var url_saveFormField>';
 
         /************************  CHANGE STATUS   *************************/
+        YAHOO.util.Event.addListener("statusLink",'click',WebGUI.Ticket.loadField,{
+            fieldId : 'ticketStatus'
+        });
 
-        var changeStatus = function(o) {
-            var target = YAHOO.util.Event.getTarget(o);
-            var id     = target.id;
-            var parts  = id.split("~");
+        /************************  CHANGE KARMA SCALE *************************/
+        YAHOO.util.Event.addListener("karmaScaleLink",'click',WebGUI.Ticket.loadField,{
+            fieldId : 'karmaScale'
+        });
 
-            var changeStatusUrl   = '<tmpl_var url_changeStatus>' + ";status=" + parts[1];
-            var oCallback = {
-                success: function(o) {
-                    var response = eval('(' + o.responseText + ')');
-                    if(response.hasError){
-                        var errorString = '';
-                        for(var i=0; i < response.errors.length; i++) {
-                            errorString += response.errors[i];
-                        }
-                        alert(errorString);
-                    }
-                    else {
-                        var ticketStatus       = YAHOO.util.Dom.get("ticketStatus");
-                        ticketStatus.innerHTML = response.status;
-                        if(ticketStatus.innerHTML.toLowerCase() == "closed") {
-                            solutionDialog.show();
-                        }
-                        else {
-                            toggleSolutionRow();
-                        }
-                    }
-                }
-            };
-            YAHOO.util.Connect.asyncRequest('GET', changeStatusUrl, oCallback);
-        }
-
-        //Add listeners to change status menu links
-        var linkList = YAHOO.util.Dom.getElementsByClassName('yuimenuitemlabel','a','changeStatus_div');
-        for(var i = 0; i < linkList.length; i++) {
-            YAHOO.util.Event.addListener(linkList[i],'click',changeStatus);
-        }
-
-        /************************  INITIALIZE CLICK MENUS   *************************/
-
-        var menus = YAHOO.util.Dom.getElementsByClassName('ticket-menu');
-        for (var i = menus.length; i--; ) {
-            var menu = menus[i];
-            if (menu.initialized) {
-                continue;
-            }
-            menu.initialized = true;
-            var ctx = YAHOO.util.Dom.getPreviousSibling(menu);
-            var myMenu = new YAHOO.widget.Menu(menu, {
-                context  : [ctx, "tl", "bl"]
+        /************************  EDIT META FIELDS   *************************/
+        //Add listeners
+        var metaList = YAHOO.util.Dom.getElementsByClassName('metaEditLink','a','detailsTb');
+        for(var i = 0; i < metaList.length; i++ ) {
+            var fieldId   = metaList[i].id.split("~")[1];
+            YAHOO.util.Event.addListener(metaList[i],'click',WebGUI.Ticket.loadField, {
+                fieldId : fieldId
             });
-            myMenu.render();
-            YAHOO.util.Event.addListener(ctx, "click", function (e, menu) {
-                YAHOO.util.Event.preventDefault(e);
-                menu.align("tl", "bl");
-                menu.show();
-            }, myMenu);
         }
+
+        /************************  POST KEYWORDS   *************************/
+        WebGUI.Ticket.postKeywordsUrl = '<tmpl_var url_postKeywords>';
+        YAHOO.util.Event.addListener("keywordsBtn","click",WebGUI.Ticket.postKeywords,{
+            seperator : ' '
+        });
+
+        /************************  TRANSFER KARMA *************************/
+        WebGUI.Ticket.transferKarmaUrl  = '<tmpl_var url_transferKarma>';
+        YAHOO.util.Event.addListener("transferKarmaBtn",'click',WebGUI.Ticket.transferKarma);
     });
 </script>
 </tmpl_if>
 
-<style>
-    legend {
-        font-weight: bold;    
-    }
-    .ticket_title {
-        background: #d8d8d8 url(^Extras;yui/build/assets/skins/sam/sprite.png) repeat-x;
-        border: solid #a3a3a3;
-        border-width: 0 1px 0;
-        font-family: arial;
-        font-weight: bold;
-        font-size: 14pt;
-    }
-    .ticket_body {
-        background: #FFFFFF;
-        border: 1px solid #000000;
-    }
-    .ticket_desc {
-        background: #d8d8d8;
-    }
-
-    .userArea {
-        font-family: arial;
-        font-size: 9pt;
-        color: black;
-        background-color: white;
-        overflow: auto;
-        height: 310px;   
-    }
-    .searchBtn {
-        background-color:silver;
-        color:white;
-        border:solid gray 1px;
-        text-decoration:none;
-        font-weight:bold;	
-        text-align:center;
-        cursor:pointer;
-        font-size:9pt;
-    }
-    .inputBox {
-        border:solid gray 1px;
-        font-size:9pt;
-    }
-    .grayArea {
-        background-color:#F2F2F2;
-        border:solid #E8E8E8 1px;
-        padding:3px;
-        -moz-box-sizing:border-box;
-    }
-    .whiteArea {
-        font-family: arial;
-        font-size: 9pt;
-        color: black;
-        background-color: white;
-    }
-    .solutionArea {
-        font-family: arial;
-        font-size: 9pt;
-        color: black;
-        background-color: white;
-        overflow: auto;
-        height: 210px;   
-    }
-    #userList_div {
-        overflow: auto;
-        width: 100%;
-        height: auto;
-        font-family: arial;
-        font-size: 10pt;
-        border: solid #CACACA 1px;
-    }
-
-    * html #userList_div {
-        overflow: hidden;
-        overflow-y: auto;
-    }
-
-    #userList_div img {
-        padding-right: 10px;
-        padding-left: 10px;
-    }
-
-    #userList_div td {
-        background-color: #F2F2F2;
-        border-top: solid #F9F9F9 1px;
-        border-bottom: solid #E0E0E0 1px;
-        text-align: left;
-        vertical-align: top;
-    }
-
-    #userList_div tr.odd td {
-        background-color: #EAEAEA;
-    }
-
-</style>
+<script type="text/javascript">
+    WebGUI.Ticket.karmaUrl = "/wg/karma";
+</script>
 
 <tmpl_if callerIsTicketMgr>
 <a href="javascript:void(0);" id="return">Back To Tickets</a> <br />
@@ -388,17 +187,21 @@
 <a href="<tmpl_var url_ticketMgr>">View All Tickets</a> <br />
 </tmpl_if>
 
-<table border="0" cellpadding="2" cellspacing="0" width="80%" style="border:1px solid black;">
+<table border="0" cellpadding="2" cellspacing="0" width="90%" style="border:1px solid black;">
 <tbody>
 <tr class="ticket_title">
     <td><tmpl_var title>&nbsp;&nbsp(#<tmpl_var ticketId>)</td>
 </tr>
+<tmpl_if isPrivate>
+<tr class="ticket_private"><td>Private</td></tr>
+</tmpl_if>
+
 <tr class="ticket_body">
    <td>
     <table border="0" cellpadding="0" cellspacing="0" width="100%">
     <tbody>
         <tr>
-            <td width="70%" valign="top">
+            <td width="75%" valign="top">
                 <table width="100%" border="0" cellpadding="0" cellspacing="0">
                 <tbody>
                 <tr><td><fieldset><legend>Issue</legend><tmpl_var synopsis></fieldset><td></tr>
@@ -421,7 +224,7 @@
                                 <tmpl_var comments_form_start>
                                 <tmpl_var comments_form_comment><br />
                                 <tmpl_var comments_form_rating><input type="button" value="Post" id="commentsBtn">
-                                <tmpl_var comments_form_end>
+                                <tmpl_var form_end>
                             </div>
                             </tmpl_if>
                         </fieldset>
@@ -430,7 +233,7 @@
                 </tbody>
                 </table>
             </td>
-            <td width="30%" valign="top">
+            <td width="35%" valign="top">
                 <table width="100%" border="0" cellpadding="0" cellspacing="0">
                 <tbody>
                 <!-- Details -->
@@ -438,46 +241,80 @@
                     <td>
                         <fieldset>
                             <legend>Details</legend>
-                            <table width="300" border="0" cellpadding="0" cellspacing="0">
+                            <form>
+                            <table width="100%" border="0" cellpadding="0" cellspacing="0" id="detailsTb">
                             <tbody>
                                 <tr>
-                                    <td>Ticket Status</td>
-                                    <td id="ticketStatus"><tmpl_var ticketStatus></td>
-                                    <td><tmpl_if canEdit>
-                                        <div style="margin: 0pt 0px; float: left;" id="changeStatus_div">
-                                            <div class="yui-skin-sam ticket-menu-div">
-                                                <a href="javascript: void(0);" id="statusLink">change</a>
-                                                <div class="yuimenu ticket-menu">
-                                                    <div class="bd">
-                                                        <ul class="first-of-type">
-                                                            <tmpl_loop status_loop>
-                                                            <li class="yuimenuitem"><a class="yuimenuitemlabel" href="javascript:void(0);" id="status~<tmpl_var status_key>"><tmpl_var status_value></a></li>
-                                                            </tmpl_loop>
-                                                        </ul>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <tmpl_else>
-                                        &nbsp;
-                                        </tmpl_if>
-                                    </td>
+                                    <td class="detailsTdLeft">Ticket Status</td>
+                                    <td class="fieldValue" id="field_id_ticketStatus"><tmpl_var ticketStatus></td>
+                                    <td align="right"><tmpl_if canEdit><a href="javascript: void(0);" id="statusLink"><tmpl_var edit_icon></a><tmpl_else>&nbsp;</tmpl_if></td>
                                 </tr>
-                                <tr><td>Rating</td><td id="averageRating"><img src="<tmpl_var averageRating_src>" id="averageRatingImg" border="0" style="vertical-align: middle;" alt="<tmpl_var averageRating>" title="<tmpl_var averageRating>"></td><td>&nbsp;</td></tr>
-                                <tr><td>Submitted By</td><td><tmpl_var createdBy></td><td>&nbsp;</td></tr>
-                                <tr><td>Date Submitted</td><td><tmpl_var creationDate></td><td>&nbsp;</td></tr>
+                                <tr><td class="detailsTdLeft">Rating</td><td id="averageRating"><img src="<tmpl_var averageRating_src>" id="averageRatingImg" border="0" style="vertical-align: middle;" alt="<tmpl_var averageRating>" title="<tmpl_var averageRating>"></td><td>&nbsp;</td></tr>
+                                <tr><td class="detailsTdLeft">Submitted By</td><td><tmpl_var createdBy></td><td>&nbsp;</td></tr>
+                                <tr><td class="detailsTdLeft">Date Submitted</td><td><tmpl_var creationDate></td><td>&nbsp;</td></tr>
                                 <tr>
-                                    <td>Assigned To</td>
+                                    <td class="detailsTdLeft">Assigned To</td>
                                     <td id="assignedTo"><tmpl_var assignedTo></td>
-                                    <td><tmpl_if canEdit><a href="javascript: void(0);" id="assignLink">change</a><tmpl_else>&nbsp;</tmpl_if></td>
+                                    <td nowrap  align="right"><tmpl_if canEdit><a href="javascript: void(0);" id="assignLink"><tmpl_var edit_icon></a><a href="javascript: void(0);" id="unassignLink"><tmpl_var delete_icon></a><tmpl_else>&nbsp;</tmpl_if></td>
                                 </tr>
-                                <tr><td>Date Assigned</td><td id="dateAssigned"><tmpl_var dateAssigned></td><td>&nbsp;</td></tr>
-                                <tr><td>Assigned By</td><td id="assignedBy"><tmpl_var assignedBy></td><td>&nbsp;</td></tr>
+                                <tr><td class="detailsTdLeft">Date Assigned</td><td id="dateAssigned"><tmpl_var dateAssigned></td><td>&nbsp;</td></tr>
+                                <tr><td class="detailsTdLeft">Assigned By</td><td id="assignedBy"><tmpl_var assignedBy></td><td>&nbsp;</td></tr>
                                 <tmpl_loop meta_field_loop>
-                                <tr><td><tmpl_var meta_field_label></td><td><tmpl_var meta_field_value></td><td>&nbsp;</td></tr>
+                                <tr>
+                                    <td class="detailsTdLeft"><tmpl_var meta_field_label></td>
+                                    <td class="fieldValue" id="field_id_<tmpl_var meta_field_id>"><tmpl_var meta_field_value></td>
+                                    <td align="right"><tmpl_if canEdit><a href="javascript: void(0);" class="metaEditLink" id="fieldLink~<tmpl_var meta_field_id>"><tmpl_var edit_icon></a><tmpl_else>&nbsp;</tmpl_if></td>
+                                </tr>
                                 </tmpl_loop>
+                                <tr><td class="detailsTdLeft">URL</td><td id="url"><a href="<tmpl_var url>"><tmpl_var url></a></td><td>&nbsp;</td></tr>
                             </tbody>
                             </table>
+                            </form>
+                        </fieldset>
+                    </td>
+                </tr>
+                <!-- Karma -->
+                <tmpl_if useKarma>
+                <tr>
+                    <td>
+                        <fieldset>
+                            <legend>Karma</legend>
+                            <form>
+                            <table width="100%" border="0" cellpadding="0" cellspacing="0">
+                                <tbody>
+                                <tr>
+                                    <td class="detailsTdLeft">Difficulty</td>
+                                    <td class="fieldValue" id="field_id_karmaScale"><tmpl_var karmaScale></td>
+                                    <td align="right"><tmpl_if canEdit><a href="javascript: void(0);" id="karmaScaleLink"><tmpl_var edit_icon></a><tmpl_else>&nbsp;</tmpl_if></td>
+                                </tr>
+                                <tr><td class="detailsTdLeft">Karma So Far</td><td id="karma" colspan="2"><tmpl_var karma></td></tr>
+                                <tr><td class="detailsTdLeft">Karma Rank</td><td id="karmaRank" colspan="2"><tmpl_var karmaRank></td></tr>
+                                <tr>
+                                    <td class="detailsTdLeft">Transfer Karma</td>
+                                    <td colspan="2"><input id="karmaAmount_formId" type="text" name="karmaAmount" value="" size="11" maxlength="11" /><input type="button" value="save" id="transferKarmaBtn"/></td>
+                                </tr>
+                                </tbody>
+                            </table>
+                            </form>
+                        </fieldset>
+                    </td>
+                </tr>
+                </tmpl_if>
+                <!-- Keywords -->
+                <tr>
+                    <td>
+                        <fieldset>
+                            <legend>Keywords</legend>
+                            <tmpl_if canEdit>
+                            <div>
+                                <tmpl_var keywords_form_start>
+                                <tmpl_var keywords_form><input type="button" id="keywordsBtn" value="Update">
+                                <tmpl_var form_end>
+                            </div>
+                            </tmpl_if>
+                            <div style="width:340px;font-weight: bold; color: blue;" id="keywordDiv">
+                                <tmpl_loop keywords_loop><tmpl_var keyword> </tmpl_loop>
+                            </div>
                         </fieldset>
                     </td>
                 </tr>
@@ -491,14 +328,14 @@
                             <tmpl_var relatedFiles>
                             </div>
                             <tmpl_if canPost>
-                            <table width="300" border="0" cellpadding="0" cellspacing="0">
+                            <table width="350" border="0" cellpadding="0" cellspacing="0">
                                 <tbody>
                                 <tr>
                                     <td>
                                         <tmpl_var file_form_start>
                                         <input type="file" id="attachment_id" name="attachment">
                                         <div  style="visibility:hidden; margin-bottom:1.5em;" id="indicator">Uploading... <img src="^Extras;wobject/HelpDesk/indicator.gif"/></div>    
-                                        <tmpl_var file_form_end>
+                                        <tmpl_var form_end>
                                     </td>
                                 </tr>
                                 </tbody>
@@ -508,6 +345,17 @@
                     </td>
                 </tr>
                 </tmpl_if>
+                <!-- Ticket History -->
+                <tr>
+                    <td>
+                        <fieldset>
+                            <legend>Ticket History</legend>
+                            <div id="ticketHistory">
+                            <tmpl_var ticket_history>
+                            </div>
+                        </fieldset>
+                    </td>
+                </tr>
                 </tbody>
                 </table>
             </td>
@@ -519,7 +367,7 @@
 </tbody>
 </table>
 
-<tmpl_if canPost>
+<tmpl_if canEdit>
 <div id="assignDialog"> 
     <tmpl_var userSearch_form_start>
     <div class="grayArea">
@@ -530,15 +378,13 @@
     <div id="userList" class="userArea">
         <br /><br /><br /><br /><br /><br /><br /><br />
     </div>
-    <tmpl_var userSearch_form_end>
+    <tmpl_var form_end>
 </div>
-</tmpl_if>
 
-<tmpl_if canEdit>
 <div id="solutionDialog">
     <tmpl_var solution_form_start>
-    <div class="whiteArea"><b>Solution Summary</b><br />Briefly summarize the solution that enables this ticket to be closed.</div>
-    <div id="solutionForm" class="solutionArea"><textarea id="solution_formId" name="solution" rows="#" cols="#" style="width: 490px; height: 200px;"></textarea></div>
-    <tmpl_var solution_form_end>
+    <div class="whiteArea"><b>Status Change Notes</b><br />Describe any action taken on the ticket to be posted as comments</div>
+    <div id="solutionForm" class="solutionArea"><textarea id="solution_formId" name="comment" rows="#" cols="#" style="width: 490px; height: 200px;"></textarea></div>
+    <tmpl_var form_end>
 </div>
 </tmpl_if>

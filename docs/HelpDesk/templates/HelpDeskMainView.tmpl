@@ -15,11 +15,35 @@
 
 
 <div id="container">
-<tmpl_if canPost><a href="<tmpl_var url_addTicket>">New Support Request +</a></tmpl_if><tmpl_if canEditAndPost>&nbsp;&bull;&nbsp;</tmpl_if><tmpl_if canEdit><a href="<tmpl_var url_manageMetaData>">Manage Meta Fields</a></tmpl_if><br />
-
+<tmpl_if canPost><a href="<tmpl_var url_addTicket>">New Support Request +</a></tmpl_if><tmpl_if canEditAndPost>&nbsp;&bull;&nbsp;</tmpl_if><tmpl_if canEdit><a href="<tmpl_var url_manageMetaData>">Manage Meta Fields</a></tmpl_if><tmpl_if canPost>&nbsp;&bull;&nbsp;</tmpl_if><a href="javascript:void(0);" id="hdSubscribeLink"><tmpl_var subscribe_label></a><br />
 </div>
 
 <script type="text/javascript">
+/************************  SUBSCRIPTION *************************/
+var subscribeUrl = '<tmpl_var url_subscribe>';
+var handleSubscribe = function(evt) {
+    var oCallback = {
+        success: function(o) {
+            var response = eval('(' + o.responseText + ')');
+            if(response.hasError){
+                var message = "";
+                for(var i = 0; i < response.errors.length; i++) {
+                    message += response.errors[i];
+                }
+                alert(message);
+            }
+            else {
+                YAHOO.util.Dom.get("hdSubscribeLink").innerHTML = response.message;
+            }   
+        },
+        failure: function(o) {}
+    };
+    YAHOO.util.Connect.asyncRequest('GET', subscribeUrl, oCallback);
+}
+
+YAHOO.util.Event.addListener("hdSubscribeLink","click",handleSubscribe);
+
+/************************  TABS *************************/
 var tabView = new YAHOO.widget.TabView();
 
 var assignDialog = null;
@@ -68,6 +92,7 @@ YAHOO.example.init();
 <script type="text/javascript" src="^Extras;yui/build/datatable/datatable-beta-min.js"></script>
 <script type="text/javascript" src="^Extras;wobject/HelpDesk/yui-bubbling/build/dispatcher/dispatcher-min.js"></script>
 <script type="text/javascript" src="^Extras;wobject/HelpDesk/helpdesk.js"></script>
+<script type="text/javascript" src="^Extras;yui-webgui/build/form/form.js"></script>
 
 
 <!--begin custom header content for this example-->

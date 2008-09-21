@@ -26,42 +26,11 @@ Too many results found.  Please try a more specific search
 </tmpl_if>
 
 <script type="text/javascript">
-    
     YAHOO.util.Event.onDOMReady(function() {
-        var setAssignment = function(o) {
-            var target = YAHOO.util.Event.getTarget(o);
-            var id     = target.id;
-            var parts  = id.split("~");
-
-            var setAssignmentUrl   = '<tmpl_var url_setAssignment>' + ";assignedTo=" + parts[1];
-            var oCallback = {
-                success: function(o) {
-                    var response = eval('(' + o.responseText + ')');
-                    if(response.hasError){
-                        var errorString = '';
-                        for(var i=0; i < response.errors.length; i++) {
-                            errorString += response.errors[i];
-                        }
-                        alert(errorString);
-                    }
-                    else {
-                        var assignedTo         = YAHOO.util.Dom.get("assignedTo");
-                        assignedTo.innerHTML   = response.assignedTo;
-                        var dateAssigned       = YAHOO.util.Dom.get("dateAssigned");
-                        dateAssigned.innerHTML = response.dateAssigned;
-                        var assignedBy         = YAHOO.util.Dom.get("assignedBy");
-                        assignedBy.innerHTML   = response.assignedBy;
-                        window.assignDialog.hide();
-                    }
-                }
-            };
-            YAHOO.util.Connect.asyncRequest('GET', setAssignmentUrl, oCallback);
-        }
-        
         //Set listeners on all the links
         var linkList = YAHOO.util.Dom.getElementsByClassName("userListLink",'a','userList_div');
         for(var i = 0; i < linkList.length; i++) {
-            YAHOO.util.Event.addListener(linkList[i],'click',setAssignment);
+            YAHOO.util.Event.addListener(linkList[i],'click',WebGUI.Ticket.setAssignment,{ url:'<tmpl_var url_setAssignment>' });
         }
 
     });

@@ -2,8 +2,17 @@
 #namespace=HelpDesk/search
 #assetId=HELPDESK00000000000004
 
+<link rel="stylesheet" type="text/css" href="^Extras;yui/build/calendar/assets/skins/sam/calendar.css" />
 <script type="text/javascript">
-  YAHOO.util.Event.onDOMReady(function () {
+    var webguiFirstDayOfWeek = 0;
+</script>
+<script type="text/javascript" src="^Extras;yui/build/calendar/calendar-min.js"></script>
+<script type="text/javascript" src="^Extras;yui-webgui/build/datepicker/datepicker.js"></script>
+
+
+<script type="text/javascript">
+    YAHOO.util.Event.onDOMReady(function () {
+        //initialize the datatable
         var hd = new WebGUI.HelpDesk({
             datasource : '<tmpl_var url_pageData>',
             container  : 'search',
@@ -16,7 +25,10 @@
                 { key: 'creationDate' },
                 { key: 'assignedTo' },
                 { key: 'ticketStatus' },
-                { key: 'url'}
+                { key: 'url' },
+                { key: 'lastReplyDate' },
+                { key: 'lastReplyBy' },
+                { key: 'lastReplyById' }
             ],
             columns    : [ 
                 { key: 'ticketId', label: "Ticket Id", sortable: true },
@@ -24,23 +36,54 @@
                 { key: 'createdBy', label: "Submitted By", sortable: true },
                 { key: 'creationDate', label: "Submitted On", sortable: true },
                 { key: 'assignedTo', label: "Assigned To", sortable: true },
-                { key: 'ticketStatus', label: "Status", sortable: true }
+                { key: 'ticketStatus', label: "Status", sortable: true },
+                { key: 'lastReplyDate', label: "Last Reply", sortable: true, formatter: WebGUI.HelpDesk.formatLastReply }
             ],
             p_containers : ['search_paging_bottom']
         });
         hd.initDataTable();
+
+        //*********************************************************************
+        // Override the WebGUI HelpDesk buildQueryString function
+        WebGUI.HelpDesk.buildQueryString = function (state,dt) {
+             var query = ";recordOffset=" + state.pagination.recordOffset 
+                + ';orderByDirection=' + ((state.sorting.dir === DataTable.CLASS_ASC) ? "ASC" : "DESC")
+                + ';rowsPerPage=' + state.pagination.rowsPerPage
+                + ';orderByColumn=' + state.sorting.key
+                + ";"
+                + WebGUI.Form.buildQueryString("searchForm",{ name: ["func"] })
+                ;
+            return query;
+        }
+    
+        function doSearch ( oArgs ) {
+            var dt = hd.getDataTable();
+            var newState = {
+                startIndex: 0, 
+                sorting: hd.getDefaultSort(),
+                pagination : { // Pagination values
+                    recordOffset: 0, // Default to first page when sorting
+                    rowsPerPage: dt.get("paginator").getRowsPerPage() // Keep current setting
+                }
+            };
+
+            // Create callback object for the request
+            var oCallback = {
+                success: dt.onDataReturnInitializeTable,
+                failure: dt.onDataReturnInitializeTable,
+                scope: dt,
+                argument: newState // Pass in new state as data payload for callback function to use
+            };
+            var request = WebGUI.HelpDesk.buildQueryString(newState,dt);
+            dt.getDataSource().sendRequest(request,oCallback);
+        };
+
+        YAHOO.util.Event.addListener("searchBtn",'click',doSearch);
     });
 </script>
- 
-<link rel="stylesheet" type="text/css" href="^Extras;yui/build/calendar/assets/skins/sam/calendar.css" />
-<script type="text/javascript">
-    var webguiFirstDayOfWeek = 0;
-</script>
-<script type="text/javascript" src="^Extras;yui/build/calendar/calendar-min.js"></script>
-<script type="text/javascript" src="^Extras;yui-webgui/build/datepicker/datepicker.js"></script>
 
-
-<tmp_var form_start>
+<div id="search">
+<tmpl_var form_start>
 <table border="0" cellspacing="1">
     <tbody>
     <tr>
@@ -51,7 +94,7 @@
                 <tr><td>Status</td><td><tmpl_var form_status></td></tr>
                 <tr><td>Assigned To</td><td><tmpl_var form_assignedTo></td></tr>
                 <tr><td>Assigned By</td><td><tmpl_var form_assignedBy></td></tr>
-                <tr><td>Created By></td><td><tmpl_var form_createdBy></td></tr>
+                <tr><td>Created By</td><td><tmpl_var form_createdBy></td></tr>
                 <tr><td>Created</td><td><tmpl_var form_dateStart>&nbsp;To:&nbsp;<tmpl_var form_dateEnd></td></tr>
                 </tbody>
             </table>
@@ -60,6 +103,7 @@
         <td valign="top" width="40%">
             <table border="0" cellpadding="3" cellspacing="0" width="100%">
                 <tbody>
+                <tr><td>Scope</td><td><tmpl_var form_scope></td></tr>
                 <tr><td>Ticket Id</td><td><tmpl_var form_ticketId></td></tr>
                 <tmpl_if hasMetaFields>
                 <tmpl_loop meta_loop>
@@ -70,13 +114,12 @@
             </table>
         </td>
     </tr>
+    <tr><td colspan="3"><input type="button" value="Search" id="searchBtn"></td></tr>
     </tbody>
 </table>
 <tmpl_var form_end>
 
 <br clear="all" />
-
-<div id="search">
     <div id="sdt"></div>
     <div id="search_paging_bottom"></div>
 </div>

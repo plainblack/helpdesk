@@ -21,7 +21,10 @@
                 { key: 'creationDate' },
                 { key: 'assignedTo' },
                 { key: 'ticketStatus' },
-                { key: 'url'}
+                { key: 'url'},
+                { key: 'lastReplyDate'},
+                { key: 'lastReplyBy'},
+                { key: 'lastReplyById'}
             ],
             columns    : [ 
                 { key: 'ticketId', label: "Ticket Id", sortable: true },
@@ -29,7 +32,8 @@
                 { key: 'createdBy', label: "Submitted By", sortable: true },
                 { key: 'creationDate', label: "Submitted On", sortable: true },
                 { key: 'assignedTo', label: "Assigned To", sortable: true },
-                { key: 'ticketStatus', label: "Status", sortable: true }
+                { key: 'ticketStatus', label: "Status", sortable: true },
+                { key: 'lastReplyDate', label: "Last Reply", sortable: true, formatter: WebGUI.HelpDesk.formatLastReply }
             ],
             p_containers : ['my_paging_top','my_paging_bottom']
         });

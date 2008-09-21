@@ -34,6 +34,16 @@ You simply replace key1|value1 with your own name/value pairs.},
         message => q|<p>Default value you wish to display in the field.  For fields that can have multiple default values, list default values as mulitple line items</p>|,
         lastUpdated => 1122316558,
     },
+
+    'subscribe_link' => {
+        message => q{subscribe},
+        lastUpdated => 1122316558,
+    },
+
+    'unsubscribe_link' => {
+        message => q{unsubscribe},
+        lastUpdated => 1122316558,
+    },
 };
 
 1;

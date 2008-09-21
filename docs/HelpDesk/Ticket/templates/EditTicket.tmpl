@@ -32,7 +32,7 @@
 			<td class="formDescription"  valign="top" style="width: 180px;"><label for="description_formId">Description</label><div class="wg-hoverhelp">Provide as much description as you can about the problem. A good description answers:<ul><li>What were you trying to do?</li><li>What happened when you did it?</li><li>Why is that wrong; what did you expect to happen?</li></ul></div></td>
 			<td valign="top" class="tableData"><tmpl_var form_synopsis></td>
 		</tr>
-        <!-- Title -->
+        <!-- Attachments -->
         <tr id="attachment_formId_row">
             <td class="formDescription"  valign="top" style="width: 180px;"><label for="attachment_formId">Attachments</label><div class="wg-hoverhelp">Attach any relevent documents which will help further diagonse the issue</div></td>
 			<td valign="top" class="tableData" ><tmpl_var form_attachment></td>
@@ -45,6 +45,25 @@
 			<td valign="top" class="tableData" ><tmpl_var form_field></td>
         </tr>
         </tmpl_loop>
+        </tmpl_if>
+        <!-- isPrivate -->
+        <tr id="isPrivate_formId_row">
+            <td class="formDescription"  valign="top" style="width: 180px;"><label for="isPrivate_formId">Is Private?</label><div class="wg-hoverhelp">Choose whether or not this ticket is private.  Private tickets are only viewable by you, the help desk admin, and the person assigned to the ticket.</div></td>
+			<td valign="top" class="tableData" ><tmpl_var form_isPrivate></td>
+        </tr>
+        <tmpl_if isAdmin>
+        <!-- Keywords -->
+        <tr id="keywords_formId_row">
+            <td class="formDescription"  valign="top" style="width: 180px;"><label for="keywords_formId">Keywords</label><div class="wg-hoverhelp">Add any keywords that might be used to search for this ticket</div></td>
+			<td valign="top" class="tableData" ><tmpl_var form_keywords></td>
+        </tr>
+        <!-- Karma Scale -->
+        <tmpl_if useKarma>
+        <tr id="karmaScale_formId_row">
+            <td class="formDescription"  valign="top" style="width: 180px;"><label for="karmaScale_formId">Difficulty</label><div class="wg-hoverhelp">Rank the difficulty of this ticket</div></td>
+			<td valign="top" class="tableData" ><tmpl_var form_karmaScale></td>
+        </tr>
+        </tmpl_if>
         </tmpl_if>
         <tr>
             <td colspan="2"><tmpl_var form_submit></td>
