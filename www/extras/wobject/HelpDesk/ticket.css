@@ -1,6 +1,11 @@
 legend {
     font-weight: bold;    
 }
+
+form {
+    margin: 0;
+    padding: 0
+}
 .ticket_title {
     background: #d8d8d8 url(^Extras;yui/build/assets/skins/sam/sprite.png) repeat-x;
     border: solid #a3a3a3;
@@ -44,19 +49,21 @@ legend {
     padding:3px;
     -moz-box-sizing:border-box;
 }
+#solutionDialog {
+    background-color: #FFFFFF;
+}
 .whiteArea {
     font-family: arial;
     font-size: 9pt;
     color: black;
-    background-color: white;
 }
 .solutionArea {
     font-family: arial;
     font-size: 9pt;
     color: black;
-    background-color: white;
+    background-color:#FFFFFF;
     overflow: auto;
-    height: 210px;   
+    height: 160px;   
 }
 #userList_div {
     overflow: auto;

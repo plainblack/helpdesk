@@ -1,0 +1,67 @@
+#title=Default Notification Template
+#namespace=HelpDesk/notify
+#assetId=HELPDESK00000000000007
+<table border="0" cellpadding="3" cellspacing="2" id="hd_notification">
+<tbody>
+    <tr><td>&nbsp;</td></tr>
+    <tr>
+        <td bgcolor="black" style="background-color:black;">
+            <font color="white"><b style="color:white;"><tmpl_var username> has posted to one of your subscriptions</b></font>
+        </td>
+    </tr>
+    <tr>
+        <td bgcolor="#DFDFDF" style="background-color:#DFDFDF;">
+            <a href="<tmpl_var url>"><font color="black"><tmpl_var url></a>
+        </td>
+    </tr>
+    <tr>
+        <td bgcolor="#F0F0F0" style="background-color:#F0F0F0;"><tmpl_var content></td>
+    </tr>
+    <tr>
+        <td>&nbsp;</td>
+    </tr>
+    <tmpl_if hasMetaData>
+    <tr>
+        <td bgcolor="#FFFFFF" style="background-color:#FFFFFF;" align="left">
+            <table border="0" cellpadding="3" cellspacing="2" width="50%">
+            <tbody>
+                <tr>
+                    <td bgcolor="#F0F0F0" style="background-color:#F0F0F0;">Ticket Status</td>
+                    <td bgcolor="#F0F0F0" style="background-color:#F0F0F0;"><tmpl_var ticketStatus></td>
+                </tr>
+                <tr>
+                    <td bgcolor="#F0F0F0" style="background-color:#F0F0F0;">Submitted By</td>
+                    <td bgcolor="#F0F0F0" style="background-color:#F0F0F0;"><tmpl_var createdBy></td>
+                </tr>
+                <tr>
+                    <td bgcolor="#F0F0F0" style="background-color:#F0F0F0;">Date Submited</td>
+                    <td bgcolor="#F0F0F0" style="background-color:#F0F0F0;"><tmpl_var creationDate></td>
+                </tr>
+                <tmpl_if isAssigned>
+                <tr>
+                    <td bgcolor="#F0F0F0" style="background-color:#F0F0F0;">Assigned To</td>
+                    <td bgcolor="#F0F0F0" style="background-color:#F0F0F0;"><tmpl_var assignedTo></td>
+                </tr>
+                <tr>
+                    <td bgcolor="#F0F0F0" style="background-color:#F0F0F0;">Date Assigned</td>
+                    <td bgcolor="#F0F0F0" style="background-color:#F0F0F0;"><tmpl_var dateAssigned></td>
+                </tr>
+                <tr>
+                    <td bgcolor="#F0F0F0" style="background-color:#F0F0F0;">Assigned By</td>
+                    <td bgcolor="#F0F0F0" style="background-color:#F0F0F0;"><tmpl_var assignedBy></td>
+                </tr>
+                </tmpl_if>
+                <tmpl_loop meta_field_loop>
+                <tr>
+                    <td bgcolor="#F0F0F0" style="background-color:#F0F0F0;"><tmpl_var meta_field_label></td>
+                    <td bgcolor="#F0F0F0" style="background-color:#F0F0F0;"><tmpl_var meta_field_value></td>
+                </tr>
+                </tmpl_loop>
+            </tbody>
+            </table>
+        </td>
+    </tr>
+    </tmpl_if>
+</tbody>
+</table>
+<p><a href="<tmpl_var unsubscribeUrl>"><tmpl_var unsubscribeLinkText></a></p>

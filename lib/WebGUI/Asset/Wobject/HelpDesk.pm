@@ -80,6 +80,44 @@ sub addChild {
 
 #-------------------------------------------------------------------
 
+=head2 canEdit
+
+Determine if the user has permission to post a ticket to the help desk
+
+=head3 userId
+
+User to check edit privileges of
+
+=head3 ignoreNew
+
+If this flag is set, canEdit will ignore the new conditions even if the ticket being submitted is new.
+
+=cut
+
+sub canEdit {
+    my $self      = shift;
+    my $session   = $self->session;
+    my $form      = $session->form;
+    my $func      = $form->get("func");
+    my $assetId   = $form->get("assetId");
+    my $userId    = shift || $self->session->user->userId;
+    my $ignoreNew = shift;
+
+    #Adding tickets from the help desk    
+    if(!$ignoreNew
+        && $userId eq $session->user->userId
+        && $form->get("class") eq "WebGUI::Asset::Ticket"
+        && ($func eq "add" || ($func eq "editSave" && $assetId eq "new" ))
+    ) {
+        my $user = WebGUI::User->new($session,$userId);
+        return $user->isInGroup($self->getValue("groupToPost"));
+    }
+    
+    return $self->SUPER::canEdit($userId);
+}
+
+#-------------------------------------------------------------------
+
 =head2 canPost
 
 Determine if the user has permission to post a ticket to the help desk
@@ -88,16 +126,65 @@ Determine if the user has permission to post a ticket to the help desk
 
 sub canPost {
     my $self    = shift;
-    my $session = $self->session;
-    
-    return ($self->canEdit || $session->user->isInGroup($self->getValue('groupToPost')));
+    my $userId  = shift;
+
+    my $user    = undef;
+    if($userId) {
+        $user = WebGUI::User->new($self->session,$userId)
+    }
+    else {
+        $user   = $self->session->user;
+        $userId = $user->userId;
+    }
+
+    return ($user->isInGroup($self->getValue('groupToPost')) || $self->canEdit($userId));
 }
 
 #-------------------------------------------------------------------
 sub canSubscribe {
     my $self    = shift;
-    my $userId  = $self->session->user->userId;
-    return ($userId ne "1" && $self->canView );
+    my $userId  = shift || $self->session->user->userId;
+    return ($userId ne "1" && $self->canView($userId) );
+}
+
+#-------------------------------------------------------------------
+sub commit {
+    my $self = shift;
+    my $i18n = $self->i18n;
+    my $cron = undef;
+    
+    $self->SUPER::commit;
+    
+    #Handle setting up the cron job
+    if ($self->get("getMailCronId")) {
+        $cron = WebGUI::Workflow::Cron->new($self->session, $self->get("getMailCronId"));
+    }
+    unless (defined $cron) {
+        $cron = WebGUI::Workflow::Cron->create($self->session, {
+            title        =>$self->getTitle." ".$i18n->echo("Mail"),
+            minuteOfHour =>"*/".($self->get("getMailInterval")/60),
+            className    =>(ref $self),
+            methodName   =>"new",
+            parameters=>$self->getId,
+            workflowId=>"hdworkflow000000000001"
+        });
+        $self->update({ getMailCronId => $cron->getId });
+    }
+    
+    if ($self->get("getMail")) {
+        $cron->set({
+            enabled=>1,
+            title=>$self->getTitle." ".$i18n->get("mail"),
+            minuteOfHour=>"*/".($self->get("getMailInterval")/60)
+        });
+    }
+    else {
+        $cron->set({
+            enabled=>0,
+            title=>$self->getTitle." ".$i18n->get("mail"),
+            minuteOfHour=>"*/".($self->get("getMailInterval")/60)
+        });
+    }
 }
 
 #-------------------------------------------------------------------
@@ -109,7 +196,7 @@ sub createSubscriptionGroup {
 
 	my $group = WebGUI::Group->new($self->session, "new");
 
-	$group->name($self->getId);
+	$group->name($id);
 	$group->description("The group to store subscriptions for $type $id");
 	$group->isEditable(0);
 	$group->showInForms(0);
@@ -119,7 +206,6 @@ sub createSubscriptionGroup {
 	});
     return $group;
 }
-
 
 #-------------------------------------------------------------------
 sub definition {
@@ -197,6 +283,14 @@ sub definition {
 			hoverHelp      => $i18n->echo('Choose the template to use for editing help desk meta fields'),
 			label          => $i18n->echo('Edit Meta Field Template'),
 		},
+        notificationTemplateId =>{
+            fieldType      => "template",  
+			defaultValue   => 'HELPDESK00000000000007',
+			tab            => "display",
+			namespace      => "HelpDesk/notify", 
+			hoverHelp      => $i18n->echo('Choose the template to use for sending email'),
+			label          => $i18n->echo('Notification Tempalte'),
+		},
         editTicketTemplateId =>{
             fieldType      => "template",  
 			defaultValue   => 'TICKET0000000000000001',
@@ -252,6 +346,13 @@ sub definition {
             label          => $i18n->echo("Who can post?"),
             hoverHelp      => $i18n->echo("Choose the group of users that can post bugs to the list"),
         },
+        groupToChangeStatus => {
+            tab            => "security",
+            fieldType      => "group",
+            defaultValue   => 3, # Admins
+            label          => $i18n->echo("Who can change status?"),
+            hoverHelp      => $i18n->echo("Choose the group of users that can change the status of a bug.  By default the user assigned to the ticket and users who can edit the help desk will already have this privilege.  This is an additional group that can work on tickets"),
+        },
         richEditIdPost => {
             tab             => "display",
             fieldType       => "selectRichEditor",
@@ -299,6 +400,89 @@ sub definition {
             noFormPost      =>1,
             defaultValue    =>undef,
         },
+        approvalWorkflow =>{
+			fieldType       =>"workflow",
+			defaultValue    =>"pbworkflow000000000003",
+			type            =>'WebGUI::VersionTag',
+			tab             =>'security',
+			label           =>$i18n->get('approval workflow'),
+			hoverHelp       =>$i18n->get('approval workflow description'),
+		},
+        autoSubscribeToTicket => {
+			fieldType       => "yesNo",
+			defaultValue    => 1,
+			tab             => 'mail',
+			label           => $i18n->get("auto subscribe to ticket"),
+			hoverHelp       => $i18n->get("auto subscribe to ticket help"),
+		},
+		requireSubscriptionForEmailPosting => {
+			fieldType       => "yesNo",
+			defaultValue    => 1,
+			tab             => 'mail',
+			label           => $i18n->get("require subscription for email posting"),
+			hoverHelp       => $i18n->get("require subscription for email posting help"),
+		},
+        mailServer=>{
+			fieldType       => "text",
+			defaultValue    => undef,
+			tab             => 'mail',
+			label           => $i18n->get("mail server"),
+			hoverHelp       => $i18n->get("mail server help"),
+		},
+		mailAccount=>{
+			fieldType       => "text",
+			defaultValue    => undef,
+			tab             => 'mail',
+			label           => $i18n->get("mail account"),
+			hoverHelp       => $i18n->get("mail account help"),
+		},
+		mailPassword=>{
+			fieldType       => "password",
+			defaultValue    => undef,
+			tab             => 'mail',
+			label           => $i18n->get("mail password"),
+			hoverHelp       => $i18n->get("mail password help"),
+		},
+		mailAddress=>{
+			fieldType       => "email",
+			defaultValue    => undef,
+			tab             => 'mail',
+			label           => $i18n->get("mail address"),
+			hoverHelp       => $i18n->get("mail address help"),
+		},
+		mailPrefix=>{
+			fieldType       =>"text",
+			defaultValue    =>undef,
+			tab             =>'mail',
+			label           =>$i18n->get("mail prefix"),
+			hoverHelp       =>$i18n->get("mail prefix help"),
+		},
+		getMailCronId=>{
+			fieldType       => "hidden",
+			defaultValue    => undef,
+			noFormPost      => 1
+		},
+		getMail=>{
+			fieldType       => "yesNo",
+			defaultValue    => 0,
+			tab             => 'mail',
+			label           => $i18n->get("get mail"),
+			hoverHelp       => $i18n->get("get mail help"),
+		},
+		getMailInterval=>{
+			fieldType       => "interval",
+			defaultValue    => 300,
+			tab             => 'mail',
+			label           => $i18n->get("get mail interval"),
+			hoverHelp       => $i18n->get("get mail interval help"),
+		},
+        closeTicketsAfter =>{
+			fieldType       => "interval",
+			defaultValue    => 300,
+			tab             => 'properties',
+			label           => $i18n->echo("Close Tickets After"),
+			hoverHelp       => $i18n->echo("Resolved tickets get closed after this period of time"),            
+        },
 	);
 	push(@{$definition}, {
 		assetName=>$i18n->get('assetName'),
@@ -330,6 +514,19 @@ sub duplicate {
 #-------------------------------------------------------------------
 sub getContentLastModified {
     return time;
+}
+
+#-------------------------------------------------------------------
+
+=head2 getEditTabs
+
+Add a tab for the mail interface.
+
+=cut
+
+sub getEditTabs {
+	my $self = shift;
+	return ($self->SUPER::getEditTabs(), ['mail', "Mail", 9]);
 }
 
 #------------------------------------------------------------------
@@ -492,16 +689,26 @@ sub indexTickets {
 
 #-------------------------------------------------------------------
 
-=head2 isSubscribed (  )
+=head2 isSubscribed ( [userId]  )
 
 Returns a boolean indicating whether the user is subscribed to the help desk.
 
 =cut
 
 sub isSubscribed {
-    my $self = shift;
+    my $self    = shift;
+    my $userId  = shift;
+    
+    my $user    = undef;
+    if($userId) {
+        $user = WebGUI::User->new($self->session,$userId)
+    }
+    else {
+        $user   = $self->session->user;
+    }
+
     return 0 unless ($self->get("subscriptionGroup"));
-	return $self->session->user->isInGroup($self->get("subscriptionGroup"));	
+	return $user->isInGroup($self->get("subscriptionGroup"));
 }
 
 #-------------------------------------------------------------------
@@ -553,21 +760,24 @@ sub processPropertiesFromFormPost {
 }
 
 #-------------------------------------------------------------------
-
-=head2 purge ( )
-
-removes collateral data associated with a NewWobject when the system
-purges it's data.  This method is unnecessary, but if you have 
-auxiliary, ancillary, or "collateral" data or files related to your 
-wobject instances, you will need to purge them here.
-
-=cut
-
 sub purge {
-	my $self = shift;
-	#purge your wobject-specific data here.  This does not include fields 
-	# you create for your NewWobject asset/wobject table.
-	return $self->SUPER::purge;
+	my $self    = shift;
+    my $session = $self->session;
+
+    #Delete the subscription group
+	my $group = WebGUI::Group->new($session, $self->get("subscriptionGroup"));
+	$group->delete if ($group);
+    
+    #Delete the mail cron
+    if ($self->get("getMailCronId")) {
+		my $cron = WebGUI::Workflow::Cron->new($session, $self->get("getMailCronId"));
+		$cron->delete if defined $cron;
+	}
+
+    #Delete all the metadata fields
+    $session->db->write("delete from HelpDesk_metaField where assetId=?",[$self->getId]);
+
+    $self->SUPER::purge;
 }
 
 #-------------------------------------------------------------------
@@ -590,6 +800,7 @@ sub view {
     $var->{'canPost'       } = $self->canPost;
     $var->{'canEdit'       } = $self->canEdit;
     $var->{'canEditAndPost'} = $var->{'canPost'} && $var->{'canEdit'};
+    $var->{'canSubscribe'  } = $self->canSubscribe;
 
     $var->{'url_viewAll'    } = $self->getUrl("func=viewAllTickets");
     $var->{'url_viewMy'     } = $self->getUrl("func=viewMyTickets");
@@ -606,6 +817,21 @@ sub view {
 	
 	return $self->processTemplate($var, undef, $self->{_viewTemplate});
 }
+
+#-------------------------------------------------------------------
+
+=head2 www_copy ( )
+
+Overrides the default copy functionality and does nothing.
+
+=cut
+
+sub www_copy {
+    my $self = shift;
+    return $self->session->privilege->insufficient unless $self->canEdit;
+    return $self->processStyle("Help Desk applications cannot be copied");
+}
+
 
 #-------------------------------------------------------------------
 
@@ -833,7 +1059,10 @@ sub www_getAllTickets {
     }
     elsif(!$self->canEdit) {    
         my $userId     = $session->user->userId;
-        $whereClause .= qq{ and (isPrivate=0 || (isPrivate=1 && (assignedTo='$userId' || createdBy='$userId')))};
+        $whereClause .= qq{ and Ticket.ticketStatus <> 'resolved' and (isPrivate=0 || (isPrivate=1 && (assignedTo='$userId' || createdBy='$userId')))};
+    }
+    else {
+        $whereClause .= qq{ and Ticket.ticketStatus <> 'resolved'};
     }
 
     my $rules;
@@ -1362,6 +1591,23 @@ sub www_searchTickets {
 
 #----------------------------------------------------------------------------
 
+=head2 www_subscribe ( ) 
+
+User friendly method that subscribes the user to the ticket (doesn't return JSON)
+
+=cut
+
+sub www_subscribe {
+    my $self      = shift;
+
+    return $self->session->privilege->insufficient  unless $self->canSubscribe;
+    
+    $self->www_toggleSubscription;
+    return "";
+}
+
+#----------------------------------------------------------------------------
+
 =head2 www_toggleSubscription ( ) 
 
 Subscribes or unsubscribes the user from the help desk returning the opposite text
@@ -1403,7 +1649,32 @@ sub www_toggleSubscription {
         $returnStr = $i18n->get("unsubscribe_link");
     }
 
-    return "{ message : '$returnStr' }";
+    #Find the ticket subscription information if an assetId is passed in
+    my $ticketMsg = "";
+    my $assetId   = $session->form->get("assetId");
+    if($assetId) {
+        my $ticket = WebGUI::Asset->newByDynamicClass($session,$assetId);
+        $ticketMsg = $ticket->getSubscriptionMessage;
+    }
+
+    return "{ message : '$returnStr', ticketMsg : '$ticketMsg' }";
+}
+
+#----------------------------------------------------------------------------
+
+=head2 www_unsubscribe ( ) 
+
+User friendly method that subscribes the user to the ticket (doesn't return JSON)
+
+=cut
+
+sub www_unsubscribe {
+    my $self      = shift;
+
+    return $self->session->privilege->insufficient  unless $self->canSubscribe;
+    
+    $self->www_toggleSubscription;
+    return "";
 }
 
 
@@ -1450,6 +1721,7 @@ sub install {
         searchTemplateId VARCHAR(22) BINARY NOT NULL default 'HELPDESK00000000000004',
         manageMetaTemplateId VARCHAR(22) BINARY NOT NULL default 'HELPDESK00000000000005',
         editMetaFieldTemplateId VARCHAR(22) BINARY NOT NULL default 'HELPDESK00000000000006',
+        notificationTemplateId VARCHAR(22) BINARY NOT NULL default 'HELPDESK00000000000007',
         editTicketTemplateId VARCHAR(22) BINARY NOT NULL default 'TICKET0000000000000001',
         viewTicketTemplateId VARCHAR(22) BINARY NOT NULL default 'TICKET0000000000000002',
         viewTicketRelatedFilesTemplateId VARCHAR(22) BINARY NOT NULL default 'TICKET0000000000000003',
@@ -1457,7 +1729,9 @@ sub install {
         viewTicketCommentsTemplateId VARCHAR(22) BINARY NOT NULL default 'TICKET0000000000000005',
         viewTicketHistoryTemplateId VARCHAR(22) BINARY NOT NULL default 'TICKET0000000000000006',
         richEditIdPost VARCHAR(22) BINARY NOT NULL default 'PBrichedit000000000002',
+        approvalWorkflow varchar(22) BINARY NOT NULL default 'pbworkflow000000000003',
         groupToPost VARCHAR(22) BINARY NOT NULL default '3',
+        groupToChangeStatus VARCHAR(22) BINARY NOT NULL default '3',
         karmaEnabled TINYINT(4) DEFAULT 0,
         karmaPerPost INTEGER NOT NULL default 0,
         karmaToClose INTEGER NOT NULL default 0,
@@ -1465,6 +1739,17 @@ sub install {
         sortColumn ENUM ('ticketId ','title','createdBy','creationDate','assignedTo','ticketStatus','lastReplyDate','karmaRank') DEFAULT 'creationDate',
         sortOrder ENUM('ASC','DESC') DEFAULT 'DESC',
         subscriptionGroup VARCHAR(255) NOT NULL,
+        mailServer VARCHAR(255) default NULL,
+        mailAccount VARCHAR(255) default NULL,
+        mailPassword VARCHAR(255) default NULL,
+        mailAddress VARCHAR(255) default NULL,
+        mailPrefix VARCHAR(255) default NULL,
+        getMail TINYINT(4) NOT NULL default 0,
+        getMailInterval INTEGER NOT NULL default 300,
+        getMailCronId VARCHAR(22) BINARY default NULL,
+        autoSubscribeToTicket TINYINT(4) NOT NULL default 1,
+        requireSubscriptionForEmailPosting TINYINT(4) NOT NULL default 1,
+        closeTicketsAfter integer not null default 1209600,
         PRIMARY KEY (assetId,revisionDate)
     )");
 
@@ -1486,7 +1771,7 @@ sub install {
         assetId VARCHAR(22) BINARY NOT NULL,
         revisionDate BIGINT NOT NULL,
         ticketId mediumint not null,
-        ticketStatus VARCHAR(30) NOT NULL default 'new';
+        ticketStatus VARCHAR(30) NOT NULL default 'pending';
         assigned tinyint(1) NOT NULL default 0,
         assignedTo VARCHAR(22) BINARY default NULL,
         assignedBy VARCHAR(22) BINARY default NULL,
@@ -1498,7 +1783,8 @@ sub install {
         averageRating float default 0,
         lastReplyDate BIGINT default NULL,
         lastReplyBy VARCHAR(22) BINARY default NULL,
-        resolvedBy VARCHAR(22) BINARY default NULLL,
+        resolvedBy VARCHAR(22) BINARY default NULL,
+        resolvedDate BIGINT default NULL,
         karma INTEGER NOT NULL default 0,
         karmaScale INTEGER NOT NULL default 1,
         karmaRank FLOAT default NULL,
@@ -1580,6 +1866,25 @@ sub install {
     ### Install the ticket templates
     importTemplates($session,$ticketTemplateDir,$ticketFolder);
 
+    ### Add the Workflow Activities to the config file.
+    $session->config->addToArray("workflowActivities/None", "WebGUI::Workflow::Activity::CloseResolvedTickets");
+
+    ### Create a new workflow for running mail
+    my $props = {
+        title        => "Get Help Desk Mail",
+        description  => "Retrieves mail from a POP3 account for the given Help Desk",
+        enabled      => "1",
+        type         => "WebGUI::Asset::Wobject::HelpDesk",
+        mode         => "singleton",
+    };
+    my $workflow = WebGUI::Workflow->create($session,$props,"hdworkflow000000000001");
+    ### Add the activity to the workflow
+    my $activity = $workflow->addActivity(
+        "WebGUI::Workflow::Activity::GetHelpDeskMail",
+        "hdactivity000000000001"
+    );
+    $activity->set("title","Get Mail");
+
 	$session->var->end;
 	$session->close;
 	print "Done. Please restart Apache.\n";
@@ -1621,7 +1926,13 @@ sub uninstall {
     #Drop asset related tables
 	$session->db->write("drop table if exists HelpDesk");
     $session->db->write("drop table if exists Ticket");
+
+    #Remove the workflow activity form the config file
+    $session->config->deleteFromArray("workflowActivities/None", "WebGUI::Workflow::Activity::CloseResolvedTickets");
     
+    #Delete the workflow activity
+    WebGUI::Workflow->new($session,"hdworkflow000000000001")->delete;
+
 	$session->var->end;
 	$session->close;
 	print "Done. Please restart Apache.\n";

@@ -25,7 +25,7 @@ WebGUI.Ticket.findFirstFormElement = function( node ) {
     }
     //Nothing found
     return null;
-}
+};
 
 //***********************************************************************************
 WebGUI.Ticket.findUsers = function(o) {
@@ -40,7 +40,18 @@ WebGUI.Ticket.findUsers = function(o) {
     YAHOO.util.Dom.setStyle('userSearchIndicator', 'display', '');
     YAHOO.util.Connect.setForm("userSearchForm");
     YAHOO.util.Connect.asyncRequest('POST', WebGUI.Ticket.userSearchUrl, oCallback);
-}
+};
+
+//***********************************************************************************
+WebGUI.Ticket.loadDataTable = function( oArgs ) {
+    var oCallback = {
+        success: function(o) {
+            YAHOO.plugin.Dispatcher.process( WebGUI.Ticket.dataTableId, o.responseText );
+        },
+        failure: function(o) {}
+    };
+    var request = YAHOO.util.Connect.asyncRequest('GET',WebGUI.Ticket.viewTicketUrl, oCallback); 
+};
 
 //***********************************************************************************
 WebGUI.Ticket.loadField = function(o, obj) {
@@ -51,9 +62,8 @@ WebGUI.Ticket.loadField = function(o, obj) {
 
     var oCallback = {
         success: function(o) {
-            //Put the form field into the node
-            var valueField = YAHOO.util.Dom.get("field_id_"+fieldId); 
-            valueField.innerHTML = o.responseText;
+            //Use the dispatcher to insert the form and run any javascript included
+            YAHOO.plugin.Dispatcher.process("field_id_"+fieldId, o.responseText );
             //Remove the current listener from the link
             var href             = YAHOO.util.Dom.getAncestorByTagName(button,"A");            
             YAHOO.util.Event.removeListener(href,'click',WebGUI.Ticket.loadField);
@@ -65,13 +75,17 @@ WebGUI.Ticket.loadField = function(o, obj) {
             href.appendChild(saveButton);
             //Add a new listener to the link
             YAHOO.util.Event.addListener(saveButton,'click',WebGUI.Ticket.saveFieldValue,{
-                fieldId    : obj.fieldId,
-                buttonSrc  : button.src
+                fieldId    : obj.fieldId
             });
+            //Get the node
+            var valueField = YAHOO.util.Dom.get("field_id_"+fieldId);
             //Get the form field added to the link node
             var formField = WebGUI.Ticket.findFirstFormElement(valueField);
             //Set focus on the form field
-            formField.focus();
+            var elem = new YAHOO.util.Element(formField);
+            if(elem.get("onfocus") == null) {
+                formField.focus();
+            }
         },
         failure: function(o) {}
     };
@@ -80,8 +94,8 @@ WebGUI.Ticket.loadField = function(o, obj) {
 }
 
 //***********************************************************************************
-WebGUI.Ticket.postComment = function (o, obj) {
-
+WebGUI.Ticket.postComment = function (evt, obj) {
+    var url        = WebGUI.Ticket.postCommentUrl;
     var oCallback = {
         success: function(o) {
             var response = eval('(' + o.responseText + ')');
@@ -93,24 +107,109 @@ WebGUI.Ticket.postComment = function (o, obj) {
                     success: function (o) {
                         YAHOO.util.Dom.get("comments").innerHTML = o.responseText;
                         YAHOO.util.Dom.get("commentsForm").reset();
+                        //Set the average rating
                         var averageRatingImg   = YAHOO.util.Dom.get("averageRatingImg");
                         averageRatingImg.src   = response.averageRatingImage;
                         averageRatingImg.title = response.averageRating;
                         averageRatingImg.alt   = response.averageRating;
-                        YAHOO.util.Dom.get("field_id_ticketStatus").innerHTML = response.ticketStatus;
-                        WebGUI.Ticket.rebuildHistory();
+                        //Set the solution summary
+                        YAHOO.util.Dom.setStyle("solutionSummary_div","display","none");
+                        var solutionSummary       = YAHOO.util.Dom.get("solution");
+                        solutionSummary.innerHTML = response.solutionSummary;
+                        WebGUI.Ticket.toggleSolutionRow(response.ticketStatus);
+                        //Hide the dialog
+                        if(window.solutionDialog) window.solutionDialog.hide();
+                        //Update ticket status if this was a post to change status
+                        if(WebGUI.Ticket.statusChanged) {
+                            WebGUI.Ticket.saveFieldValue(o,{
+                                fieldId   : 'ticketStatus'
+                            });
+                            WebGUI.Ticket.statusChanged = false;
+                        }
+                        else {
+                            //Set ticket status as it may have been changed to pending after a comment was made
+                            YAHOO.util.Dom.get("field_id_ticketStatus").innerHTML = response.ticketStatus;
+                            //Handle the corner case where someone who has status change privs clicks the change status button but then posts a regular comment
+                            var href = YAHOO.util.Dom.get("statusLink");
+                            if(href) {
+                                var button = YAHOO.util.Dom.getFirstChild(href);
+                                if(button.tagName == "INPUT") {
+                                    YAHOO.util.Event.removeListener(href,'click',WebGUI.Ticket.saveFieldValue);
+                                    WebGUI.Ticket.removeAllChildren(href);
+                                    var editButton = document.createElement("IMG");
+                                    editButton.setAttribute("src",WebGUI.Ticket.buttonSrc);
+                                    editButton.setAttribute("title","Change");
+                                    editButton.setAttribute("alt","Change");
+                                    YAHOO.util.Dom.setStyle(editButton,"border","0");
+                                    YAHOO.util.Dom.setStyle(editButton,"vertical-align","middle");
+                                    href.appendChild(editButton);
+                                    YAHOO.util.Event.addListener(href,'click',WebGUI.Ticket.loadField,{ fieldId : 'ticketStatus' });
+                                }
+                            }
+                            //History is rebuilt by the saveFieldValue method in the other condition
+                            WebGUI.Ticket.rebuildHistory();
+                        }
+                        var ticketStatus = response.ticketStatus.toLowerCase();
+                        //change the button text if the status is now resolved
+                        var commentsBtn = YAHOO.util.Dom.get("commentsBtn");
+                        if(ticketStatus == "resolved") {
+                            commentsBtn.value="Reopen Ticket";
+                            if(WebGUI.Ticket.isOwner) {
+                                var commentsButtonDiv = YAHOO.util.Dom.get("commentsButton_div");
+                                //Add the close button if ticket is resolved and the user is the ticket owner and the closed button isn't already there
+                                var closeButton = YAHOO.util.Dom.get("closeBtn");
+                                if(closeButton == null) {
+                                    closeButton = document.createElement("INPUT");
+                                    closeButton.setAttribute("type","button");
+                                    closeButton.setAttribute("value","Confirm and Close");
+                                    closeButton.setAttribute("name","closeBtn");
+                                    closeButton.id ="closeBtn";
+                                    YAHOO.util.Event.addListener(closeButton,"click", WebGUI.Ticket.postComment, { form : "commentsForm", close : true });
+                                    commentsButtonDiv.appendChild(closeButton);
+                                }
+                                //Add the close ticket hidden field if it doesn't exist already
+                                var closeTicket = YAHOO.util.Dom.get("closeTicket");
+                                if(closeTicket == null) {
+                                    closeTicket = document.createElement("INPUT");
+                                    closeTicket.setAttribute("type","hidden");
+                                    closeTicket.setAttribute("name","close");
+                                    closeTicket.id = "closeTicket";
+                                    commentsButtonDiv.appendChild(closeTicket);
+                                }                                
+                            }
+                        }
+                        else {
+                            commentsBtn.value="Post";
+                            //The closed button isn't needed anymore since the ticket it closed so remove it.
+                            var closeBtn  = YAHOO.util.Dom.get("closeBtn");
+                            if(closeBtn) {
+                                var btnParent = closeBtn.parentNode;
+                                btnParent.removeChild(closeBtn);
+                            }
+                        }
+                        //reset the closeTicket field if it exists (that way tickets aren't repeatedly closed.)
+                        var closeField = YAHOO.util.Dom.get("closeTicket");
+                        if(closeField) {
+                            closeField.value="";    
+                        }
                         //Easter Egg for plainblack.com
                         WebGUI.Ticket.updateKarmaMessage(response.karmaLeft);
-                        window.solutionDialog.hide();
                     },
                     failure: function(o) {}
                 });
-            }   
+            }
         },
         failure: function(o) {}
     };
+    if(obj.close) {
+        //close button clicked
+        var closeField = YAHOO.util.Dom.get("closeTicket");
+        if(closeField) {
+            closeField.value="closed";    
+        }
+    }
     YAHOO.util.Connect.setForm(obj.form);
-    YAHOO.util.Connect.asyncRequest('POST', WebGUI.Ticket.postCommentUrl, oCallback);
+    YAHOO.util.Connect.asyncRequest('POST', url, oCallback);
 };
 
 //***********************************************************************************
@@ -170,14 +269,20 @@ WebGUI.Ticket.removeAllChildren = function( node ) {
 
 //***********************************************************************************
 WebGUI.Ticket.saveFieldValue = function(o, obj) {
-    var button     = YAHOO.util.Event.getTarget(o);
-    
+    var button     = null;
+    if(WebGUI.Ticket.statusChanged == true) {
+        var href = YAHOO.util.Dom.get("statusLink");
+        button = YAHOO.util.Dom.getFirstChild(href,function(node) {
+            node.tagName == "INPUT"
+        });
+    }
+    else {
+        button = YAHOO.util.Event.getTarget(o);
+    }
     var fieldId    = obj.fieldId;
     var valueField = YAHOO.util.Dom.get("field_id_"+fieldId);
     var formField  = WebGUI.Ticket.findFirstFormElement(valueField);
-    var fieldValue = WebGUI.Form.getFormValue(formField);
-    var url        = WebGUI.Ticket.saveUrl + ";fieldId=" + fieldId + ";value=" + encodeURIComponent(fieldValue);    
-    
+   
     var oCallback = {
         success: function(o) {
             var response = eval('(' + o.responseText + ')');
@@ -185,12 +290,12 @@ WebGUI.Ticket.saveFieldValue = function(o, obj) {
                 alert(WebGUI.Ticket.processErrors(response.errors));
             }
             else {
-                valueField.innerHTML = response.value;        
+                valueField.innerHTML = response.value;
                 var href             = YAHOO.util.Dom.getAncestorByTagName(button,"A");
                 YAHOO.util.Event.removeListener(href,'click',WebGUI.Ticket.saveFieldValue);
                 WebGUI.Ticket.removeAllChildren(href);
                 var editButton = document.createElement("IMG");
-                editButton.setAttribute("src",obj.buttonSrc);
+                editButton.setAttribute("src",WebGUI.Ticket.buttonSrc);
                 editButton.setAttribute("title","Change");
                 editButton.setAttribute("alt","Change");
                 YAHOO.util.Dom.setStyle(editButton,"border","0");
@@ -199,15 +304,9 @@ WebGUI.Ticket.saveFieldValue = function(o, obj) {
                 YAHOO.util.Event.addListener(href,'click',WebGUI.Ticket.loadField,{ fieldId : obj.fieldId });
                 //Rebuild the history
                 WebGUI.Ticket.rebuildHistory();
-                //Pop up the comment box when you change a status
-                if(fieldId == "ticketStatus") {
-                    var solutionDialog = YAHOO.util.Dom.get("solution_formId");
-                    solutionDialog.value = response.value + " by " + response.username;
-                    window.solutionDialog.show();
-                    //Easter Egg for plainblack.com
-                    WebGUI.Ticket.updateKarmaMessage(response.karmaLeft);
-                }
-                else if(fieldId == "karmaScale") {
+
+                //Pop up the comment box when you change karma scale
+                if(fieldId == "karmaScale") {
                     YAHOO.util.Dom.get("solution_formId").value = "Difficulty updated by " + response.username;
                     YAHOO.util.Dom.get("karmaRank").innerHTML = response.karmaRank;
                     window.solutionDialog.show();
@@ -216,8 +315,25 @@ WebGUI.Ticket.saveFieldValue = function(o, obj) {
         },
         failure: function(o) {}
     };
-    
-    YAHOO.util.Connect.asyncRequest('GET', url, oCallback);
+
+    //Pop up the comment box when you change a status
+    if(fieldId == "ticketStatus" && !WebGUI.Ticket.statusChanged ) {
+        var fieldValue                   = WebGUI.Form.getFormValue(formField);
+        var solutionDialog               = YAHOO.util.Dom.get("solution_formId");
+        solutionDialog.value             = WebGUI.Ticket.statusValues[fieldValue] + " by " + WebGUI.Ticket.currentUser;
+        var solutionFormStatus           = YAHOO.util.Dom.get("setFormStatus_formId");
+        solutionFormStatus.value         = fieldValue;
+        WebGUI.Ticket.statusChanged      = true;
+        if(fieldValue == "resolved") {
+            var solutionSummaryDiv  = YAHOO.util.Dom.get();
+            YAHOO.util.Dom.setStyle("solutionSummary_div","display","");
+        }
+        window.solutionDialog.show();
+    }
+    else {
+        YAHOO.util.Connect.setForm(formField.form);
+        YAHOO.util.Connect.asyncRequest('POST', WebGUI.Ticket.saveUrl, oCallback);
+    }
 }
 
 //***********************************************************************************
@@ -264,14 +380,35 @@ WebGUI.Ticket.showAssignDialog = function (o) {
 
 //***********************************************************************************
 //Function used to toggle the solution summary
-WebGUI.Ticket.toggleSolutionRow = function() {
-    var ticketStatus = YAHOO.util.Dom.get("field_id_ticketStatus").innerHTML;
-    if(ticketStatus.toLowerCase() == "closed") {
+WebGUI.Ticket.toggleSolutionRow = function( ticketStatus ) {    
+    if(ticketStatus.toLowerCase() == "closed" || ticketStatus.toLowerCase() == "resolved") {
         YAHOO.util.Dom.setStyle('solutionRow', 'display', '');
     }
     else {
         YAHOO.util.Dom.setStyle('solutionRow', 'display', 'none');
     }
+};
+
+//***********************************************************************************
+//Function used to toggle the solution summary
+WebGUI.Ticket.toggleSubscription = function(evt) {
+    var oCallback = {
+        success: function(o) {
+            var response = eval('(' + o.responseText + ')');
+            if(response.hasError){
+                var message = "";
+                for(var i = 0; i < response.errors.length; i++) {
+                    message += response.errors[i];
+                }
+                alert(message);
+            }
+            else {
+                YAHOO.util.Dom.get("ticketSubscribeLink").innerHTML = response.message;
+            }   
+        },
+        failure: function(o) {}
+    };
+    YAHOO.util.Connect.asyncRequest('GET', WebGUI.Ticket.subscribeUrl, oCallback);
 };
 
 //***********************************************************************************

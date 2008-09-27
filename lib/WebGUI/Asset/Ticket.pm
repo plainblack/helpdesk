@@ -20,7 +20,7 @@ use JSON qw( decode_json encode_json );
 use base 'WebGUI::Asset';
 use WebGUI::Utility;
 
-my $ratingUrl = "wobject/HelpDesk/rating/";
+my $ratingUrl       = "wobject/HelpDesk/rating/";
 
 #-------------------------------------------------------------------
 
@@ -51,46 +51,103 @@ sub canAdd {
 }
 
 #-------------------------------------------------------------------
-sub canEdit {
+# Whether or not the user has privilege to assign this ticket to someone else
+sub canAssign {
     my $self    = shift;
-    my $session = $self->session;
-    my $userId  = shift || $session->user->userId;
-    my $form    = $self->session->form;
-    my $user    = WebGUI::User->new( $session, $userId );
-    my $func    = $form->get("func");
-    my $assetId = $form->get("assetId");
+    my $userId  = shift || $self->session->user->userId;
+    
+    return $self->canEdit($userId);
+}
+
+#-------------------------------------------------------------------
+# Whether or not the user has privilege to change the status of a ticket
+sub canChangeStatus {
+    my $self       = shift;
+    my $session    = $self->session;
+    my $userId     = shift || $session->user->userId;
+    my $assignedTo = $self->get("assignedTo");
+    
+    return (
+        $self->canEdit($userId)
+        ||  $userId eq $assignedTo
+        || WebGUI::User->new($session,$userId)->isInGroup($self->getParent->get("groupToChangeStatus"))
+    );
+}
+
+#-------------------------------------------------------------------
+=head2 canEdit
+
+Determine if the user has permission to edit the help desk ticket
+
+=head3 userId
+
+User to check edit privileges of
+
+=head3 ignoreNew
+
+If this flag is set, canEdit will ignore the new conditions even if the ticket being submitted is new.
+
+=cut
+
+sub canEdit {
+    my $self      = shift;
+    my $session   = $self->session;
+    my $userId    = shift || $session->user->userId;
+    my $form      = $self->session->form;
+    my $user      = WebGUI::User->new( $session, $userId );
+    my $func      = $form->get("func");
+    my $assetId   = $form->get("assetId");
+    my $ignoreNew = shift;
     
     # Handle adding new tickets
-    if ($func eq "add" || ( $func eq "editSave" && $assetId eq "new" )){
+    if (!$ignoreNew
+        && $userId eq $session->user->userId
+        && ($func eq "add" || ( $func eq "editSave" && $assetId eq "new" ))
+    ){
         return $self->canAdd($session);
     }
 
-    # User who posted can edit their own post
-    #if ( $self->isPoster( $userId ) ) {
-    #    my $editTimeout = $self->getThread->getParent->get( 'editTimeout' );
-    #    if ( $editTimeout > time - $self->get( "revisionDate" ) ) {
-    #        return 1;
-    #    }
-    #}
-
-    return $self->getParent->canEdit( $userId );
+    return $self->getParent->canEdit( $userId,$ignoreNew );
 }
+
+#-------------------------------------------------------------------
+# Whether or not the user has privilege to update this ticket
+sub canPost {
+    my $self    = shift;
+    my $userId  = shift || $self->session->user->userId;
+    
+    my $ownerId    = $self->get("createdBy");
+    my $assignedTo = $self->get("assignedTo");
+
+    return 1 if $self->canUpdate;
+    return $self->getParent->canPost($userId);
+
+}
+
+#-------------------------------------------------------------------
+# Whether or not the user has privilege to update this ticket
+sub canUpdate {
+    my $self    = shift;
+    my $userId  = shift || $self->session->user->userId;
+    
+    my $ownerId    = $self->get("createdBy");
+    my $assignedTo = $self->get("assignedTo");
+
+    return ($userId eq $ownerId || $userId eq $assignedTo || $self->canEdit($userId));
+}
+
 
 #-------------------------------------------------------------------
 sub canView{
     my $self    = shift;
-    my $userId  = $self->session->user->userId;
-    
-    my $ownerId   = $self->get("createdBy");
-    my $assignedTo = $self->get("assignedTo");
+    my $userId  = shift || $self->session->user->userId;
     
     #Handle private cases
-    if($self->get("isPrivate")) {
-        return 1 if($userId eq $ownerId || $userId eq $assignedTo || $self->getParent->canEdit);
+    if($self->isPrivate) {
+        return 1 if($self->canUpdate);
         return 0;
     }
-    return $self->SUPER::canView(@_);
-    
+    return $self->SUPER::canView($userId);
 }
 
 #-------------------------------------------------------------------
@@ -98,9 +155,11 @@ sub commit {
 	my $self    = shift;
     my $session = $self->session;
     my $parent  = $self->getParent;
+    my $i18n    = $self->i18n;
+
 	$self->SUPER::commit;
     
-    #$self->notifySubscribers unless ($self->shouldSkipNotification);
+    my $msg = $i18n->get("update_ticket_message");
     
     #Award karma for new posts
 	if ($self->get("creationDate") == $self->get("revisionDate")) {
@@ -109,7 +168,31 @@ sub commit {
 			my $u = WebGUI::User->new($session, $self->get("createdBy"));
 			$u->karma($karmaPerPost, $self->getId, "Help Desk post");
 		}
+        $msg = $i18n->get("new_ticket_message");
 	}
+    #Send out the message
+    $self->notifySubscribers({
+        content         =>$msg,
+        includeMetaData =>1,
+        user            =>WebGUI::User->new($session,$self->get("ownerUserId"))
+    }) unless ($self->shouldSkipNotification);
+
+}
+
+#-------------------------------------------------------------------
+sub createAdHocMailGroup {
+	my $self  = shift;
+
+	my $group = WebGUI::Group->new($self->session, "new");
+
+	$group->name($group->getId);
+	$group->description("AdHoc Mail Group for ticket ".$self->getId);
+	$group->isEditable(0);
+	$group->showInForms(0);
+    $group->isAdHocMailGroup(1);
+	$group->deleteGroups([3]); # admins don't want to be auto subscribed to this thing
+
+    return $group;
 }
 
 #-------------------------------------------------------------------
@@ -177,6 +260,10 @@ sub definition {
 			fieldType     => "hidden",
 			defaultValue  => [],
 		},
+        solutionSummary => {
+			fieldType     => "hidden",
+			defaultValue  => undef,
+		},
         averageRating => {
             noFormPost	  => 1,
 			fieldType     => "hidden",
@@ -193,6 +280,11 @@ sub definition {
             defaultValue =>undef
         },
         resolvedBy => {
+            noFormPost   =>1,
+            fieldType    =>"hidden",
+            defaultValue =>undef
+        },
+        resolvedDate => {
             noFormPost   =>1,
             fieldType    =>"hidden",
             defaultValue =>undef
@@ -261,6 +353,78 @@ sub getAverageRatingImage {
     return $self->session->url->extras($ratingUrl.$imageId.".png");
 }
 
+#-------------------------------------------------------------------
+
+=head2 getAutoCommitWorkflowId
+
+    Returns the autocommit workflow for this Ticket
+
+=cut
+
+sub getAutoCommitWorkflowId {
+	my $self = shift;
+	return $self->getParent->get("approvalWorkflow");
+}
+
+#-------------------------------------------------------------------
+
+=head2 getCommonDisplayVars (  )
+
+Returns common variables used to display details about a ticket.
+
+=cut
+
+sub getCommonDisplayVars {
+	my $self    = shift;
+    my $session = $self->session;
+    my $parent  = $self->getParent;
+    my $var     = $self->get;
+
+    my $assignedTo= ($var->{'assignedTo'})
+        ? WebGUI::User->new($session,$var->{'assignedTo'})->username
+        : "unassigned"
+        ;
+
+    my $assignedBy= ($var->{'assignedBy'})
+        ? WebGUI::User->new($session,$var->{'assignedBy'})->username
+        : ""
+        ;
+    
+    #Format Data for Display
+    $var->{'ticketStatus'     } = $parent->getStatus($self->get("ticketStatus"));
+    $var->{'isAssigned'       } = $self->isAssigned;
+    $var->{'assignedTo'       } = $assignedTo;
+    $var->{'assignedBy'       } = $assignedBy;
+    $var->{'createdBy'        } = WebGUI::User->new($session,$var->{'createdBy'})->username;
+    $var->{'creationDate'     } = $session->datetime->epochToSet($var->{'creationDate'});
+    $var->{'dateAssigned'     } = $session->datetime->epochToSet($var->{'dateAssigned'});
+    $var->{'isPrivate'        } = $self->isPrivate;
+    $var->{'solutionSummary'  } = $self->get("solutionSummary");
+    
+    #Display metadata
+    my $metafields   = $parent->getHelpDeskMetaFields({returnHashRef => 1});
+    my $metadata     = $self->getTicketMetaData;
+    my @metaDataLoop = ();
+    foreach my $fieldId (keys %{$metafields}) {   
+        my $props = {
+            name         => "field_".$fieldId,
+			value        => $metadata->{$fieldId},
+			defaultValue => undef,
+			options	     => $metafields->{$fieldId}->{possibleValues},
+            fieldType    => $metafields->{$fieldId}->{dataType},
+        };
+        my $fieldValue = WebGUI::Form::DynamicField->new($session,%{$props})->getValueAsHtml;
+        $var->{'meta_'.$fieldId} = $fieldValue;
+        push(@metaDataLoop, {
+            "meta_field_id"    => $fieldId,
+            "meta_field_label" => $metafields->{$fieldId}->{label},
+            "meta_field_value" => $fieldValue,
+        });
+    }
+    $var->{'meta_field_loop'} = \@metaDataLoop;
+    return $var;
+}
+
 #------------------------------------------------------------------
 
 =head2 getHistory (  )
@@ -298,14 +462,14 @@ sub getHistory {
 
 #-------------------------------------------------------------------
 
-=head2 getIcon (  )
+=head2 getImageIcon (  )
 
 Returns the icon passed in from the icon system.  This fuction is used
 because $session->icon addtionally adds preset links to these icons.
 
 =cut
 
-sub getIcon {
+sub getImageIcon {
 	my $self = shift;
     my $icon = shift || "edit";
     my $text = shift || ucfirst($icon);
@@ -344,6 +508,32 @@ sub getRelatedFilesVars {
     return $var;
 }
 
+#----------------------------------------------------------------------------
+
+=head2 getStorageLocation ( options ) 
+
+Properly posts a file to it's storage location
+
+=cut
+
+sub getStorageLocation {
+    my $self      = shift;
+    
+    my $storageId = $self->get("storageId");
+    my $store     = undef;
+
+    if ($storageId) {
+        $store = WebGUI::Storage->get($self->session,$storageId);
+    }
+    else {
+        #No storageId - create one and update the asset
+        $store = WebGUI::Storage->create($self->session);
+        $self->update({ storageId=>$store->getId });
+    }
+    
+    return $store;
+}
+
 #-------------------------------------------------------------------
 sub getSubscriptionGroup {
 	my $self  = shift;
@@ -357,6 +547,15 @@ sub getSubscriptionGroup {
         $group = $self->getParent->createSubscriptionGroup($self,"ticket",$self->get("ticketId"));
     }
     return $group;
+}
+
+#-------------------------------------------------------------------
+sub getSubscriptionMessage {
+	my $self  = shift;
+    my $i18n  = $self->i18n;
+
+    return $i18n->get("unsubscribe_link") if($self->isSubscribed);
+    return $i18n->get("subscribe_link");
 }
 
 #-------------------------------------------------------------------
@@ -416,24 +615,90 @@ sub i18n {
 
 #-------------------------------------------------------------------
 
-=head2 isSubscribed (  )
+=head2 isAssigned (  )
+
+Returns a boolean indicating whether this ticket is assigned or not.
+
+=cut
+
+sub isAssigned {
+    my $self     = shift;
+    return $self->get("isAssigned");
+}
+
+#-------------------------------------------------------------------
+
+=head2 isPrivate (  )
+
+Returns a boolean indicating whether this ticket is private or not.
+
+=cut
+
+sub isPrivate {
+    my $self     = shift;
+    return $self->get("isPrivate");
+}
+
+#-------------------------------------------------------------------
+
+=head2 isReply (  )
+
+Returns a boolean indicating whether there are comments on this ticket.
+
+=cut
+
+sub isReply {
+    my $self     = shift;
+    my $comments = $self->get("comments");
+    return (scalar(@$comments) > 1);
+}
+
+#-------------------------------------------------------------------
+
+=head2 isSubscribed ( [userId] )
 
 Returns a boolean indicating whether the user is subscribed to the ticket or help desk.
 
 =cut
 
 sub isSubscribed {
-    my $self = shift;
+    my $self   = shift;
+    my $userId = shift;
+
     #Return true user is in the help desk subscription group
-    return 1 if ($self->getParent->isSubscribed);
+    return 1 if ($self->getParent->isSubscribed($userId));
+    #Return false if the subscription group is not set
+    return $self->isSubscribedToTicket($userId);
+}
+
+#-------------------------------------------------------------------
+
+=head2 isSubscribedToTicket ( [userId]  )
+
+Returns a boolean indicating whether the user is subscribed to the ticket
+
+=cut
+
+sub isSubscribedToTicket {
+    my $self    = shift;
+    my $userId  = shift;
+
+    my $user    = undef;
+    if($userId) {
+        $user = WebGUI::User->new($self->session,$userId)
+    }
+    else {
+        $user   = $self->session->user;
+    }
+
     #Return false if the subscription group is not set
     return 0 unless ($self->get("subscriptionGroup"));
-	return $self->session->user->isInGroup($self->get("subscriptionGroup"));	
+	return $user->isInGroup($self->get("subscriptionGroup"));	
 }
 
 #----------------------------------------------------------------------------
 
-=head2 logHistory ( ) 
+=head2 logHistory ( actionTaken [,user] ) 
 
 log an event
 
@@ -442,16 +707,216 @@ log an event
 sub logHistory {
     my $self        = shift;
     my $session     = $self->session;
-    my $actionTaken = shift;    
+    my $actionTaken = shift;
+    my $user        = shift || $session->user;
 
     my $props   = {};
     $props->{'historyId'  } = "new";
     $props->{'actionTaken'} = $actionTaken;
     $props->{'dateStamp'  } = time();
-    $props->{'userId'     } = $session->user->userId;
+    $props->{'userId'     } = $user->userId;
     $props->{'assetId'    } = $self->getId;
 
     $session->db->setRow("Ticket_history","historyId",$props);
+}
+
+#-------------------------------------------------------------------
+
+=head2 notifySubscribers ( props )
+
+Send notifications to the help desk and ticket subscribers
+
+=head3 properties
+
+properties to pass in for mail
+
+=head4 user
+
+=head4 from
+
+=head4 subject
+
+=head4 content
+
+=cut
+
+sub notifySubscribers {
+    my $self           = shift;
+    my $props          = shift;
+    my $session        = $self->session;
+    my $parent         = $self->getParent;
+    my $user           = $props->{user} || $session->user;
+
+    my $domain         = $parent->get("mailAddress");
+    $domain            =~ s/.*\@(.*)/$1/;
+   
+    #Set the messageId
+    $props->{'messageId'} = "ticket-".$self->getId.'@'.$domain;
+    $props->{'replyId'  } = "";
+
+    if ($self->isReply) {
+        $props->{'replyId'} = $props->{'messageId'};
+    }
+
+    #Figure out who to send the message to based on subscription groups
+    my $helpDeskSubGroup = $parent->getSubscriptionGroup;
+    my $ticketSubGroup   = $self->getSubscriptionGroup;
+    
+    #Create an Ad Hoc Mail group containing all the users that are subscribed to the ticket but not the Help Desk;
+    my $helpDeskGroup = $helpDeskSubGroup;
+    my $ticketGroup   = $self->createAdHocMailGroup;
+    $ticketGroup->addUsers($ticketSubGroup->getUsersNotIn($helpDeskSubGroup->getId,1));
+
+    #use Data::Dumper;
+    #$session->log->warn(Dumper($ticketGroup->getUsers));
+    #Send messages to the right people for private tickets - the ticketGroup will only have users that can view the ticket
+    if($self->isPrivate) {
+        my $users      = $helpDeskGroup->getUsers(1);
+        my @validUsers = ();
+        foreach my $userId (@{$users}) {
+            if($self->canView($userId)) {
+                push(@validUsers,$userId);
+            }
+        }
+        $helpDeskGroup = $self->createAdHocMailGroup;
+        $helpDeskGroup->addUsers(\@validUsers);
+    }
+
+    #Set who the message is from
+    $props->{from} = $user->profileField("email");
+
+    #Create mail settings for the two emails that need to go out
+    my $mailTo = [{
+        groupId        => $helpDeskGroup->getId,
+        subscribeUrl   => $parent->getUrl("func=toggleSubscription"),
+        unsubscribeUrl => $parent->getUrl("func=toggleSubscription"),
+    },{
+        groupId        => $ticketGroup->getId
+    }];
+
+    #Send the message to everyone in the Help Desk Subscription Group and those subscribed to the Ticket that are not subscribed to the Help Desk
+    foreach my $mailSettings (@{$mailTo}) {
+        #Append constants to distinct mail settings
+        %{$mailSettings} = (%{$props},%{$mailSettings});
+        #Send Mail
+        $self->sendMail($mailSettings);
+    }
+}
+
+
+#----------------------------------------------------------------------------
+
+=head2 postComment ( comment, options ) 
+
+Posts a comment to the ticket
+
+=head3 comment
+
+a macro negated comment to post
+
+=head3 options
+
+optional things which can affect how the comment is posted
+
+=head4 rating
+
+post rating
+
+=head4 solution
+
+solution summary
+
+=head4 user
+
+user that is posting the comment.  Defaults to $self->session->user
+
+=head4 status
+
+this comment was related to a status change by a user. Send out a special notification
+
+=cut
+
+sub postComment {
+    my $self      = shift;
+    my $comment   = shift;
+    my $options   = shift;
+    my $i18n      = $self->i18n;
+    my $session  = $self->session;
+    
+    my $rating      = $options->{rating} || 0;
+    my $solution    = $options->{solution};
+    my $user        = $options->{user} || $session->user;
+    my $status      = $options->{status};
+    my $closeTicket = $options->{closeTicket};
+    my $now         = time();
+    
+    my $parent      = $self->getParent;
+    my $useKarma    = $parent->karmaIsEnabled;
+
+    return 0 if ($comment eq "");
+
+    my $comments  = $self->get('comments');    
+    my $commentId = $session->id->generate;
+	push @$comments, {
+		id          => $commentId,
+        alias		=> $user->profileField('alias'),
+		userId		=> $user->userId,
+		comment		=> $comment,
+		rating		=> $rating,
+		date		=> $now,
+		ip			=> $session->var->get('lastIP'),
+	};
+
+    #Recalculate the rating
+    my $count = 0;
+    my $sum   = 0;
+    map { $sum += $_->{rating}; $count++ if($_->{rating} > 0); } @{$comments};    
+    #Avoid divide by zero errors
+    $count        = 1 unless ($count);
+    my $avgRating = $sum/$count;
+
+    #Set the solution summary if it was posted
+    my $solution  = $session->form->process("solution","textarea");
+    WebGUI::Macro::negate(\$solution) if($solution);
+
+    #Update the Ticket.
+	$self->update({
+        comments         => $comments,
+        solutionSummary  => $solution,
+        averageRating    => $avgRating,
+        lastReplyDate    => $now,
+        lastReplyBy      => $user->userId,
+    });
+
+    #Award karma
+    if($useKarma) {
+        my $amount         = $parent->get("karmaPerPost");
+        my $comment        = "Left comment for Ticket ".$self->get("ticketId");
+        $user->karma($amount, $self->getId, $comment);
+    }
+    
+    my $ticketStatus = $self->get("ticketStatus");
+    if($status) {
+        #This was a post to change the ticket status so update the comment
+        my $statusMessage = $i18n->get("notification_status_message");
+        $ticketStatus     = $parent->getStatus($status);
+        $comment          = sprintf($statusMessage,$ticketStatus)."<br /><br />".$comment;
+    }
+    elsif($ticketStatus eq "resolved" || $ticketStatus eq "feedback") {
+        #This was a post by a someone after a ticket was markes as resolved or feedback requested - repoen it
+        my $status = "pending";
+        #The closed button was clicked so close the ticket
+        $status    = "closed" if($ticketStatus eq "resolved" && $closeTicket);
+        $self->setStatus($status,$user);
+        my $statusMessage = $i18n->get("notification_status_message");
+        #Ticket status was changed so update the comment
+        $ticketStatus     = $parent->getStatus($self->get("ticketStatus"));
+        $comment          = sprintf($statusMessage,$ticketStatus)."<br /><br />".$comment;
+    }
+    
+    #Send notifications to subscribers
+    $self->notifySubscribers({ content=>$comment });
+
 }
 
 
@@ -524,6 +989,7 @@ sub processPropertiesFromFormPost {
         $historyMsg = "Ticket created";
     }
 
+    #This also inserts the record into the search index table
     $self->update( {
         url        => $session->url->urlize( join "/", $parent->get('url'), $ticketId ),
         ticketId   => $ticketId,
@@ -539,12 +1005,14 @@ sub processPropertiesFromFormPost {
         );
     }
 
-    #Set the subscription group if it doesn't exist
-    $self->getSubscriptionGroup();
+    #Automatically subscribe the user posting the ticket - this also creates the subscription group
+    $self->subscribe;
     
     #Log the history
     $self->logHistory($historyMsg);
 
+    #Request Autocommit
+    $self->requestAutoCommit;
     return undef;
 }
 
@@ -562,26 +1030,193 @@ asset instances, you will need to purge them here.
 =cut
 
 sub purge {
-	my $self = shift;
+	my $self    = shift;
+    my $session = $self->shift;
+    my $db      = $session->db;
+
+    #Delete the subscription group
+    my $group = WebGUI::Group->new($session, $self->get("subscriptionGroup"));
+	$group->delete if ($group);
+
+    #Delete the storage location and all the files.
+    if($self->get("storageId")) {
+        my $store = WebGUI::Storeage->get($session,$self->get("storageId"));
+        $store->delete;
+    }
+
+    #Delete records from the history table
+    $db->write("delete from Ticket_history where assetId=?",[$self->getId]);
+
+    #Delete records from the metadata table
+    $db->write("delete from Ticket_metaData where assetId=?",[$self->getId]);
+
+    #Delete records from the searchIndex table
+    $db->write("delete from Ticket_searchIndex where assetId=?",[$self->getId]);
+
 	return $self->SUPER::purge;
 }
 
 #-------------------------------------------------------------------
 
-=head2 purgeRevision ( )
+=head2 sendMail ( props )
 
-This method is called when data is purged by the system.
+Send a mail message from the system
+
+=head3 properties
+
+properties to pass in for mail
+
+=head4 user
+
+user to send mail as 
+
+=head4 from
+
+who the email is from.  Default is the email address of the poster
+
+=head4 subject
+
+subject
+
+=head4 message
+
+fully templated content to set as the message.  If this is passed in the content setting will be ignored.
+
+=head4 content
+
+content to be wrapped in the notification template
+
+=head4 subscribeUrl
+
+subscribe url - default is the ticket subscription url
+
+=head4 unsubscribeUrl
+
+unsubscribe url - default is the ticket unsubscription url
+
+=head4 messageId
+
+a messageId that can be set on the message - default is a unique message id
+
+=head4 replyId
+
+a replyId that can be set on the message - default is no reply id
+
+=head4 groupId
+
+a group to send the message to.  If this is set to and toUser will be ignored
+
+=head4 to
+
+an email address to send the message to.
+
+=head4 toUser
+
+a userId to send the message to (use this in place of to)
+
+=head4 includeMetaData
+
+whether or not to include ticket meta data with the email.  These will be passed in as template variables to the ticket.
 
 =cut
 
-sub purgeRevision {
-	my $self = shift;
-	return $self->SUPER::purgeRevision;
+sub sendMail {
+    my $self           = shift;
+    my $props          = shift;
+    my $session        = $self->session;
+    my $setting        = $session->setting;
+    my $parent         = $self->getParent;
+    my $i18n           = $self->i18n;
+    my $user           = $props->{user} || $session->user;
+
+    #Don't send emails to the user posting.
+    return if($user->userId eq $props->{toUser});
+
+    my $siteurl        = $session->url->getSiteURL();
+    my $parentUrl      = $siteurl.$parent->getUrl;
+    my $returnAddress  = $setting->get("mailReturnPath");
+    my $companyAddress = $setting->get("companyEmail");
+    my $listAddress    = $parent->get("mailAddress");
+    my $companyUrl     = $setting->get("companyURL");
+    my $companyName    = $setting->get("companyName");
+    
+    my $from           = $props->{from} || $listAddress    || $companyAddress;
+    my $replyTo        = $listAddress   || $returnAddress  || $companyAddress;
+    my $sender         = $listAddress   || $companyAddress || $from;
+    my $returnPath     = $returnAddress || $sender;
+
+    my $defaultSubUrl  = $self->getUrl("func=toggleSubscription");
+    my $subscribeUrl   = $siteurl.($props->{subscribeUrl}   || $defaultSubUrl);
+    my $unsubscribeUrl = $siteurl.($props->{unsubscribeUrl} || $defaultSubUrl);
+    
+    my $listId         = $sender;
+    $listId            =~ s/\@/\./;
+
+    #Message
+    my $message        = $props->{message};
+    unless ($message) {
+        my $var            = {};
+        if($props->{includeMetaData}) {
+            $var = $self->getCommonDisplayVars;
+            $var->{'hasMetaData'} = "true";
+        }
+    
+        #Create the template vars for the message
+        $var->{'url'                } = $siteurl.$self->getUrl;
+        $var->{'username'           } = $user->username;
+        $var->{'unsubscribeUrl'     } = $unsubscribeUrl;
+        $var->{'unsubscribeLinkText'} = $i18n->echo("unsubscribe");
+        $var->{'content'            } = $props->{content};
+
+        #Create the message
+        $message   = $self->processTemplate($var, $parent->get("notificationTemplateId"));
+    }
+    
+    #Subject
+    my $subject   = $props->{subject} || $parent->get("mailPrefix").$self->get("title");
+    
+    #Set the messageId info
+    my $messageId = $props->{messageId} ? "<".$props->{messageId}.">" : "";
+    my $replyId   = $props->{replyId}   || "";
+
+    my $mail = WebGUI::Mail::Send->create($self->session, {
+        from       => "<".$from.">",
+        returnPath => "<".$returnPath.">",
+		replyTo    => "<".$replyTo.">",
+        to         => $props->{to},
+        toUser     => $props->{toUser},
+		toGroup    => $props->{groupId},
+		subject    => $subject,
+		messageId  => $messageId
+    });
+
+    $mail->addHeaderField("In-Reply-To", "<".$replyId.">");
+    $mail->addHeaderField("References", "<".$replyId.">");
+    $mail->addHeaderField("List-ID", $parent->getTitle." <".$listId.">");
+    $mail->addHeaderField("List-Help", "<mailto:".$companyAddress.">, <".$companyUrl.">");
+    $mail->addHeaderField("List-Unsubscribe", "<".$unsubscribeUrl.">");
+    $mail->addHeaderField("List-Subscribe", "<".$subscribeUrl.">");
+    $mail->addHeaderField("List-Owner", "<mailto:".$companyAddress.">, <".$companyUrl."> (".$companyName.")");
+    $mail->addHeaderField("Sender", "<".$sender.">");
+    if ($listAddress eq "") {
+        $mail->addHeaderField("List-Post", "No");
+    }
+    else {
+        $mail->addHeaderField("List-Post", "<mailto:".$listAddress.">");
+    }
+    $mail->addHeaderField("List-Archive", "<".$parentUrl.">");
+    $mail->addHeaderField("X-Unsubscribe-Web", "<".$unsubscribeUrl.">");
+    $mail->addHeaderField("X-Subscribe-Web", "<".$subscribeUrl.">");
+    $mail->addHeaderField("X-Archives", "<".$parentUrl.">");
+    $mail->addHtml($message);
+    $mail->addFooter;
+    $mail->queue;
 }
+
 
 #----------------------------------------------------------------------------
 
-=head2 setStatus ( ) 
+=head2 setStatus ( ticketStatus [,user] ) 
 
 Properly sets the current status of a ticket.
 
@@ -595,6 +1230,7 @@ sub setStatus {
 
     my $ticketStatus = shift;
     my $assetStatus  = $self->get("status");
+    my $user         = shift || $session->user;
 
     return 0 unless $ticketStatus;
 
@@ -610,7 +1246,7 @@ sub setStatus {
             my $comment    = "Closed Ticket ".$self->get("ticketId");
             #Figure out who to give the karma to
             #If the ticket hasn't been resolved, then it is being manually closed.
-            my $closedBy = $session->user;
+            my $closedBy = $user;
             #Use resolved by if it's being automatically closed or manually resolved
             if($self->get("resolvedBy")) {
                 $closedBy = WebGUI::User->new($session,$self->get("resolvedBy"));
@@ -620,7 +1256,8 @@ sub setStatus {
         $updates->{'status'} = "archived";
     }
     elsif ($ticketStatus eq "resolved") {
-        $updates->{'resolvedBy'} = $session->user->userId;
+        $updates->{'resolvedBy'  } = $user->userId;
+        $updates->{'resolvedDate'} = time();
     }
 
     $updates->{'ticketStatus'} = $ticketStatus;
@@ -628,7 +1265,7 @@ sub setStatus {
     $self->update($updates);
 
     #Log the change in status
-    $self->logHistory($parent->getStatus($ticketStatus));
+    $self->logHistory($parent->getStatus($ticketStatus),$user);
 
     return 1;
 }
@@ -671,6 +1308,26 @@ sub setKarmaScale {
 
 #----------------------------------------------------------------------------
 
+=head2 subscribe ( ) 
+
+subscribes user to ticket
+
+=cut
+
+sub subscribe {
+    my $self      = shift;
+    my $userId    = shift || $self->session->user->userId; 
+
+    #Create the subscription group if it doesn't yet exist
+    my $group  = $self->getSubscriptionGroup();      
+    $group->addUsers([$userId]);
+    
+    return;
+}
+
+
+#----------------------------------------------------------------------------
+
 =head2 transferKarma ( ) 
 
 Properly transfers karma to the ticket and subtracts it from the user.
@@ -703,6 +1360,25 @@ sub transferKarma {
     $self->logHistory("$amount karma transfered");
 
     return 1;
+}
+
+#----------------------------------------------------------------------------
+
+=head2 unsubscribe ( ) 
+
+unsubscribes user from ticket
+
+=cut
+
+sub unsubscribe {
+    my $self    = shift;
+    my $userId  = shift || $self->session->user->userId;
+
+    #Create the subscription group if it doesn't yet exist
+    my $group  = $self->getSubscriptionGroup();      
+    $group->deleteUsers([$userId]);
+
+    return;
 }
 
 #-------------------------------------------------------------------
@@ -791,11 +1467,14 @@ method called by the container www_view method.
 =cut
 
 sub view {
-	my $self           = shift;
-    my $session        = $self->session;
-    my $parent         = $self->getParent;
-    my $var            = $self->get;
-    my $user           = $session->user;
+	my $self      = shift;
+    my $session   = $self->session;
+    my $parent    = $self->getParent;
+    my $user      = $session->user;
+    my $i18n      = $self->i18n;
+
+    #Formats a lot of data for display including meta data fields
+    my $var       = $self->getCommonDisplayVars;
 
     #Output standard controls    
     $var->{'controls'         } = $self->getToolbar;
@@ -807,70 +1486,26 @@ sub view {
     if($var->{'callerIsTicketMgr'}) {
         my $view = $session->form->get("view");
         if($view eq "my") {
-            $var->{'url_ticketView'} = $self->getParent->getUrl('func=viewMyTickets');
+            $var->{'url_ticketView'} = $parent->getUrl('func=viewMyTickets');
             $var->{'datatable_id'  } = "myTicketList";
         }
         elsif($view eq "search") {
-            $var->{'url_ticketView'} = $self->getParent->getUrl('func=search');
+            $var->{'url_ticketView'} = $parent->getUrl('func=search');
             $var->{'datatable_id'  } = "search"
         }
         else {
-            $var->{'url_ticketView'} = $self->getParent->getUrl('func=viewAllTickets');
+            $var->{'url_ticketView'} = $parent->getUrl('func=viewAllTickets');
             $var->{'datatable_id'  } = "ticketList";
         }
     }
 
-    $var->{'url_ticketMgr'    } = $parent->getUrl;
-	
-    my $assignedTo = $var->{'assignedTo'};
-    if ($assignedTo) {
-        my $u = WebGUI::User->new($session,$assignedTo);
-        $assignedTo = $u->username;
-    }
-    else {
-        $assignedTo = "unassigned";
-    }
-
-    
-    #Format Data for Display
-    $var->{'ticketStatus'     } = $parent->getStatus($self->get("ticketStatus"));
-    $var->{'assignedTo'       } = $assignedTo;
-    $var->{'assignedBy'       } = WebGUI::User->new($session,$var->{'assignedBy'})->username;
-    $var->{'createdBy'        } = WebGUI::User->new($session,$var->{'createdBy'})->username;
-    $var->{'creationDate'     } = $session->datetime->epochToSet($var->{'creationDate'});
-    $var->{'dateAssigned'     } = $session->datetime->epochToSet($var->{'dateAssigned'});
-    $var->{'averageRating_src'} = $self->getAverageRatingImage($var->{'averageRating'});
-    $var->{'averageRating'    } = sprintf("%.1f", $var->{'averageRating'});
-    $var->{'solutionStyle'    } = "display:none;" unless ($self->get("ticketStatus") eq "closed");
-    $var->{'isPrivate'        } = $self->get("isPrivate");
-
-    #Icons
-    $var->{'edit_icon'        } = $self->getIcon('edit','Change');
-    $var->{'delete_icon'      } = $self->getIcon('delete');
-
-    #Display metadata
-    my $metafields   = $parent->getHelpDeskMetaFields({returnHashRef => 1});
-    my $metadata     = $self->getTicketMetaData;
-    my @metaDataLoop = ();
-    foreach my $fieldId (keys %{$metadata}) {   
-        my $props = {
-            name         => "field_".$fieldId,
-			value        => $metadata->{$fieldId},
-			defaultValue => $metafields->{$fieldId}->{defaultValues},
-			options	     => $metafields->{$fieldId}->{possibleValues},
-            fieldType    => $metafields->{$fieldId}->{dataType},
-        };
-        my $fieldValue = WebGUI::Form::DynamicField->new($session,%{$props})->getValueAsHtml;
-        $var->{'meta_'.$fieldId} = $fieldValue;
-        push(@metaDataLoop, {
-            "meta_field_id"    => $fieldId,
-            "meta_field_label" => $metafields->{$fieldId}->{label},
-            "meta_field_value" => $fieldValue,
-        });
-    }
-    $var->{'meta_field_loop'} = \@metaDataLoop;
+    #Set up some data to return to the ticket page for display purposes
+    $var->{'username'         } = $user->username;
+    $var->{'statusValues'     } = encode_json($parent->getStatus);
 
     #Create URLs for post backs
+    $var->{'url_ticketMgr'    } = $parent->getUrl;
+    $var->{'url_self'         } = $self->getUrl;
     $var->{'url_postFile'     } = $self->getUrl('func=uploadFile');
     $var->{'url_listFile'     } = $self->getUrl('func=fileList');
     $var->{'url_userSearch'   } = $self->getUrl('func=userSearch');
@@ -884,9 +1519,28 @@ sub view {
     $var->{'url_getHistory'   } = $self->getUrl("func=getHistory");
     $var->{'url_transferKarma'} = $self->getUrl("func=transferKarma");
 
+    #Format Data for Display
+    $var->{'averageRating_src'} = $self->getAverageRatingImage($var->{'averageRating'});
+    $var->{'averageRating'    } = sprintf("%.1f", $var->{'averageRating'});
+    $var->{'solutionStyle'    } = "display:none;" unless ( isIn($self->get("ticketStatus"),qw(resolved closed)) );
+    #$var->{'isPrivate'        } = $self->get("isPrivate");
+
+    #Icons
+    $var->{'edit_icon_src'    } = $self->session->icon->getBaseURL()."edit.gif";
+    $var->{'edit_icon'        } = $self->getImageIcon('edit','Change');
+    $var->{'delete_icon'      } = $self->getImageIcon('delete');
+    
     #Send permissions to the tempalte
-    $var->{'canPost'          } = $self->getParent->canPost;
-    $var->{'canEdit'          } = $self->getParent->canEdit;
+    $var->{'canPost'                 } = $self->canPost;
+    $var->{'canEdit'                 } = $self->canEdit;
+    $var->{'canSubscribe'            } = $parent->canSubscribe;
+    $var->{'canUpdate'               } = $self->canUpdate;
+    $var->{'canChangeStatus'         } = $self->canChangeStatus;
+    $var->{'canAssign'               } = $self->canAssign;
+    $var->{'isVisitor'               } = $user->isVisitor;
+    $var->{'isOwner'                 } = $user->userId eq $self->get("ownerUserId");
+    $var->{'ticketResolved'          } = $self->get("ticketStatus") eq "resolved";
+    $var->{'ticketResolvedAndIsOwner'} = $var->{'ticketResolved'} && $var->{'isOwner'};
 
     #Process template for Related Files
     my $relatedFilesVars        = $self->getRelatedFilesVars($var->{'storageId'});
@@ -919,11 +1573,11 @@ sub view {
     $var->{'ticket_history'   } = $self->www_getHistory;
 
     #Subscriptions - don't show the subscribe link on the ticket if user is already subscribed to the help desk
-    unless($parent->isSubscribed) {
-        $var->{'showSubscribeLink'} = 1;
-        $var->{'url_subscribe'    } = $self->getUrl("func=toggleSubscription");
-        $var->{'subscribe_label'  } = ($self->isSubscribed) ? $i18n->get("unsubscribe_link") : $i18n->get("subscribe_link");
-    }
+    #unless($parent->isSubscribed) {
+    $var->{'showSubscribeLink'} = $parent->canSubscribe;
+    $var->{'url_subscribe'    } = $self->getUrl("func=toggleSubscription");
+    $var->{'subscribe_label'  } = $self->getSubscriptionMessage;
+    #}
     
 
     #Add controls for people who can post
@@ -957,30 +1611,40 @@ sub view {
         $var->{ 'form_end'   } = WebGUI::Form::formFooter( $session );
     }
     
-    #Add controls for people who can edit
-    if($var->{'canEdit'}) {
-        $var->{ 'userSearch_form_start'} 
-            = WebGUI::Form::formHeader( $session, {
-                action  => $self->getUrl('func=userSearch'),
-                extras  => q{id="userSearchForm"}
-            });
-        $var->{'solution_form_start'  }
-            = WebGUI::Form::formHeader( $session, {
-                action  => $self->getUrl('func=postComment;statusPost=1'),
-                extras  => q{id="postSolutionForm"}
-            });
+    #Add controls for people who can update the ticket
+    if($var->{'canUpdate'}) {
         $var->{'keywords_form_start'  }
             = WebGUI::Form::formHeader( $session, {
                 action  => $self->getUrl('func=postKeywords'),
                 extras  => q{id="keywordsForm"}
             });
-        
         $var->{'keywords_form'}
             = WebGUI::Form::text( $session, {
                 name    => "keywords",
                 value   => join(" ", map({ (m/\s/) ? '"' . $_ . '"' : $_ } @{$keywords})),
             });
 
+        $var->{ 'form_end'   } = WebGUI::Form::formFooter( $session );
+
+    }
+    
+    #Add controls for people who can assign the ticket to someone else
+    if($var->{'canAssign'}) {
+        $var->{ 'userSearch_form_start'} 
+            = WebGUI::Form::formHeader( $session, {
+                action  => $self->getUrl('func=userSearch'),
+                extras  => q{id="userSearchForm"}
+            });
+        $var->{ 'form_end'   } = WebGUI::Form::formFooter( $session );
+    }
+
+    #Add controls for people who can change status
+    if($var->{'canChangeStatus'}) {
+        $var->{'solution_form_start'  }
+            = WebGUI::Form::formHeader( $session, {
+                action  => $self->getUrl('func=postComment'),
+                extras  => q{id="postSolutionForm"}
+            });
         $var->{ 'form_end'   } = WebGUI::Form::formFooter( $session );
     }
 
@@ -993,6 +1657,19 @@ sub view {
     return $output
 }
 
+#-------------------------------------------------------------------
+
+=head2 www_copy ( )
+
+Overrides the default copy functionality and does nothing.
+
+=cut
+
+sub www_copy {
+    my $self = shift;
+    return $self->session->privilege->insufficient unless $self->canEdit;
+    return $self->getParent->processStyle("Tickets cannot be copied");
+}
 
 #----------------------------------------------------------------------------
 
@@ -1015,7 +1692,7 @@ sub www_edit {
 
     # Prepare the template variables
     my $var         = {};
-    $var->{isAdmin} = $parent->canEdit;
+    $var->{isAdmin} = $self->canEdit($session->user->userId,1);
 
     # Process errors if any
     if ( $session->stow->get( 'editFormErrors' ) ) {
@@ -1032,7 +1709,7 @@ sub www_edit {
     
     # Generate the form
     if ($form->get("func") eq "add"  || ($form->get("func") eq "editSave" && $form->get("assetId") eq "new")) {
-        $var->{ form_start  } 
+        $var->{ form_start  }
             = WebGUI::Form::formHeader( $session, {
                 action      => $parent->getUrl('func=editSave;assetId=new;class='.__PACKAGE__),
             })
@@ -1117,6 +1794,19 @@ sub www_edit {
             name        => "karmaScale",
             value       => ( $form->get("karmaScale") || $self->get("karmaScale") || $parent->get("defaultKarmaScale") ),
         });
+
+    $var->{ form_solutionSummary }
+        = WebGUI::Form::textarea( $session, {
+            name        => "solutionSummary",
+            value       => ( $form->get("solutionSummary") || $self->get("solutionSummary") )
+        });
+
+    $var->{ form_ticketStatus }
+        = WebGUI::Form::selectBox( $session, {
+            name        => "ticketStatus",
+            options     => $parent->getStatus,
+            value       => ( $form->get("ticketStatus") || $self->get("ticketStatus") )
+        });
     
 
     #Build meta fields
@@ -1162,6 +1852,9 @@ sub www_fileList {
     my $self      = shift;
     my $session   = $self->session;
     my $parent    = $self->getParent;
+
+    return $self->session->privilege->insufficient  unless $self->canView;
+
     my $var       = shift || $self->getRelatedFilesVars($self->get('storageId'),$parent->canPost);
 
     return $self->processTemplate(
@@ -1191,12 +1884,13 @@ sub www_getComments {
     $var->{'comments_loop'} = $self->get('comments');
 
     foreach my $comment (@{$var->{'comments_loop'}}) {
+        my $rating = $comment->{rating} || "0";
         my ($date,$time) = split("~~~",$dt->epochToHuman($comment->{'date'},"%z~~~%Z"));
         $comment->{'date_formatted'    } = $date;
         $comment->{'time_formatted'    } = $time;
         $comment->{'datetime_formatted'} = $date." ".$time;
-        $comment->{'rating_image'      } = $session->url->extras('wobject/HelpDesk/rating/'.$comment->{rating}.'.png');
-        $comment->{'comment'           } = WebGUI::HTML::format($comment->{comment},'text');
+        $comment->{'rating_image'      } = $session->url->extras('wobject/HelpDesk/rating/'.$rating.'.png');
+        $comment->{'comment'           } = $comment->{comment};
     }
     
     return $self->processTemplate(
@@ -1214,54 +1908,70 @@ Returns the form field for the id passed in
 =cut
 
 sub www_getFormField {
-    my $self      = shift;
-    my $session   = $self->session;
-    my $fieldId   = $session->form->get("fieldId");
-    my $parent    = $self->getParent;
+    my $self        = shift;
+    my $session     = $self->session;
+    my $fieldId     = $session->form->get("fieldId");
+    my $parent      = $self->getParent;
+    
+    my $htmlElement = "";
 
-    return $session->privilege->insufficient  unless $self->canEdit;
-    return "" unless $fieldId;
-
+    #Handle ticket status
     if($fieldId eq "ticketStatus") {
+        #Only users who can change the status should be returned the form field
+        return $session->privilege->insufficient  unless $self->canChangeStatus;
         my $status = $parent->getStatus;
         delete $status->{pending};
         delete $status->{closed};
 
-        return WebGUI::Form::selectBox($session,{
+        $htmlElement = WebGUI::Form::selectBox($session,{
             name    =>"ticketStatus",
             options => $status,
             value   => $self->get("ticketStatus"),
             extras  => q{class="dyn_form_field"}
         });
     }
+    #Handle karma scale
     elsif($fieldId eq "karmaScale") {
-        return WebGUI::Form::text($session,{
+        #Only users who have edit privileges should be able to change the karma scale
+        return $session->privilege->insufficient  unless $self->canEdit;
+        $htmlElement = WebGUI::Form::text($session,{
             name      => "karmaScale",
             value     => $self->get("karmaScale"),
             maxlength => "11",
             extras  => q{class="dyn_form_field"}
         })
     }
+    else {
+        #Only users who have update privileges should be able to change the metadata fields
+        return $session->privilege->insufficient  unless $self->canUpdate;
+        return "" unless $fieldId;
 
-    my $field = $self->getParent->getHelpDeskMetaField($fieldId);
+        my $field = $parent->getHelpDeskMetaField($fieldId);
 
-    my $props = {
-        name         => "field_".$fieldId,
-		value        => $self->getTicketMetaData($fieldId),
-		defaultValue => $field->{defaultValues},
-		options	     => $field->{possibleValues},
-        fieldType    => $field->{dataType},
-        extras       => q{class="dyn_form_field"}
-    };
+        my $props = {
+            name         => "field_".$fieldId,
+            value        => $self->getTicketMetaData($fieldId),
+            defaultValue => $field->{defaultValues},
+            options	     => $field->{possibleValues},
+            fieldType    => $field->{dataType},
+            extras       => q{class="dyn_form_field"}
+        };
 
-	return WebGUI::Form::DynamicField->new($session,%{$props})->toHtml;
+        $htmlElement = WebGUI::Form::DynamicField->new($session,%{$props})->toHtml;
+    }
+
+    #Get the raw head tags for any javascript stuff that needs to run
+    my $headtags = $session->style->generateAdditionalHeadTags;
+    #Return the output
+    my $output = qq{<form id="form_$fieldId">$headtags $htmlElement<input type="hidden" name="fieldId" value="$fieldId"></form>};
+    return $output;
 }
 
 #----------------------------------------------------------------------------
 
-=head2 www_getComments ( ) 
+=head2 www_getHistory ( ) 
 
-Gets the comments to display on the view ticket page.
+Gets the history to display on the view ticket page.
 
 =cut
 
@@ -1280,10 +1990,9 @@ sub www_getHistory {
     );
 }
 
-
 #----------------------------------------------------------------------------
 
-=head2 www_postComment ( ) 
+=head2 www_postComment (  ) 
 
 Posts a comment to the ticket
 
@@ -1293,91 +2002,56 @@ sub www_postComment {
     my $self      = shift;
     my $session   = $self->session;
     my $form      = $session->form;
-    my $user      = $session->user;
-    my $parent    = $self->getParent;
+    my $comment   = shift || $form->process("comment","textarea");
+    my $user      = shift || $session->user;
 
-    my $useKarma  = $parent->karmaIsEnabled;
-    my $userId    = $user->userId;
-    my $createdBy = $self->get("createdBy");
-    my $now       = time();
+    my $i18n      = $self->i18n;
     my @errors    = ();
 
+    #Negate Macros on the comment
+    WebGUI::Macro::negate(\$comment) if($comment);
+    #$session->log->warn("close button clicked?".$form->get("closeTicket"));
     $session->http->setMimeType( 'application/json' );
    
     #Check for errors
-    unless ($parent->canPost) {
+    unless ($self->canPost) {
         push(@errors,'You do not have permission to post a comment to this ticket');
     }
 
-    if($form->get("comment") eq "") {
+    if($comment eq "") {
         push(@errors,'You have entered an empty comment');
     }
 
     return $self->processErrors(\@errors) if(scalar(@errors));
 
-    #Get the comment
-    my $comment  = $form->process('comment','textarea');
-    WebGUI::Macro::negate(\$comment);
-
     #Get the rating
     my $rating   = $form->process('rating','commentRating',"0", { defaultRating  => "0" });
+
+    #Set the solution summary if it was posted
+    my $solution  = $session->form->process("solution","textarea");
+    WebGUI::Macro::negate(\$solution) if($solution);
+
+    my $status = $form->get("setFormStatus");
     
     #Post the comment to the comments
-    my $comments  = $self->get('comments');    
-    my $commentId = $session->id->generate;
-	push @$comments, {
-		id          => $commentId,
-        alias		=> $user->profileField('alias'),
-		userId		=> $user->userId,
-		comment		=> $comment,
-		rating		=> $rating,
-		date		=> $now,
-		ip			=> $self->session->var->get('lastIP'),
-	};
-	
-    #Recalculate the rating
-    my $count = 0;
-    my $sum   = 0;
-    map { $sum += $_->{rating}; $count++ if($_->{rating} > 0); } @{$comments};    
-    #Avoid divide by zero errors
-    $count = 1 unless ($count);
-    my $avgRating = $sum/$count;
-
-    #Update the Ticket.
-	$self->update({
-        comments      => $comments,
-        averageRating => $avgRating,
-        lastReplyDate => $now,
-        lastReplyBy   => $user->userId,
+    $self->postComment($comment,{
+        rating       => $rating,
+        solution     => $solution,
+        status       => $status,
+        closeTicket  => ($form->get("close") eq "closed"),
     });
-    
-    #Award karma
-    if($useKarma) {
-        my $amount         = $parent->get("karmaPerPost");
-        my $comment        = "Left comment for Ticket ".$self->get("ticketId");
-        $user->karma($amount, $self->getId, $comment);
-    }
 
-    #Change the status to pending if the ticket is feedback or resolved
-    my $ticketStatus = $self->get("ticketStatus");
-    #Only reopen tickets if the poster was not updating the status
-    unless($form->get("statusPost")) {
-        if($ticketStatus eq "resolved" || $ticketStatus eq "feedback") {
-            $self->setStatus("pending");
-        }
-    }
+    #Set the proper status to return
+    $status          = ($status) ? $status : $self->get("ticketStatus");
+    my $ticketStatus = $self->getParent->getStatus($status);
+    my $avgRating    = $self->get("averageRating");
 
-	#$self->notifySubscribers(
-	#	$self->session->user->profileField('alias') .' said:<br /> '.WebGUI::HTML::format($comment,'text'),
-	#	$self->getTitle . ' Comment',
-	#	$user->profileField('email')
-	#	);
-
+    #Return JSON to the page
     return encode_json({
         averageRating      => sprintf("%.1f", $avgRating),
         averageRatingImage => $self->getAverageRatingImage($avgRating),
-        ticketStatus       => $parent->getStatus($self->get("ticketStatus")),
-        commentId          => $commentId,
+        solutionSummary    => $self->get("solutionSummary"),
+        ticketStatus       => $ticketStatus,
         karmaLeft          => $user->karma,
     });
 }
@@ -1399,7 +2073,7 @@ sub www_postKeywords {
 
     $session->http->setMimeType( 'application/json' );
    
-    unless ($self->getParent->canEdit) {
+    unless ($self->canUpdate) {
         push(@errors,'You do not have permission to post keywords to this ticket');
     }
 
@@ -1417,35 +2091,6 @@ sub www_postKeywords {
 
 #----------------------------------------------------------------------------
 
-=head2 www_postSolution ( ) 
-
-Posts the solution summary and returns the data
-
-=cut
-
-sub www_postSolution {
-    my $self      = shift;
-    my $session   = $self->session;
-
-    my $solution  = $session->form->process("solution","textarea");
-    my @errors    = ();
-
-    $session->http->setMimeType( 'application/json' );
-   
-    unless ($self->getParent->canEdit) {
-        push(@errors,'You do not have permission to post a solution to this ticket');
-    }
-
-    return $self->processErrors(\@errors) if(scalar(@errors));
-
-    my $hash = { solutionSummary  => $solution };
-    $self->update($hash);
-    
-    return encode_json( $hash );
-}
-
-#----------------------------------------------------------------------------
-
 =head2 www_saveFormField ( ) 
 
 Saves the form field and returns the value.
@@ -1457,40 +2102,51 @@ sub www_saveFormField {
     my $session   = $self->session;
     my $parent    = $self->getParent;
     my $fieldId   = $session->form->get("fieldId");
-    my $value     = $session->form->get("value");
     my $username  = $session->user->username;
 
     my @errors    = ();
 
     $session->http->setMimeType( 'application/json' );
-   
-    unless ($self->canEdit) {
-        push(@errors,'ERROR: You do not have permission to edit the values of this ticket');
-    }
-    unless ($fieldId) {
-        push(@errors,'ERROR: No fieldId passed in.');
-    }
 
     #Handle ticket status posts
     if($fieldId eq "ticketStatus") {
+        #Get the value of the status
+        my $value     = $session->form->get("ticketStatus");
+        #Check ticket status change permissions
+        push(@errors,'ERROR: You do not have permission to change the status of this ticket') unless($self->canChangeStatus);
+        return $self->processErrors(\@errors) if(scalar(@errors));
+        #Update the status
         $self->setStatus($value);
+        #Get the friendly name of the status
         $value    = $parent->getStatus($value);
+        #Get the user's current karma as this may have changed
         my $karma = $session->user->karma;
+        #Return data
         return "{ value:'$value', username:'$username', karmaLeft : '$karma' }";
     }
     #Handle karma scale posts
     elsif($fieldId eq "karmaScale") {
+        #Get the value of the karma scale
+        my $value     = $session->form->get("karmaScale");
         #Handle karma errors
-        return $self->processErrors(['Why would you try to set the difficulty to zero?  Are you dumb?']) unless($value);
+        push(@errors,'ERROR: You do not have permission to change the difficulty of this ticket') unless($self->canEdit);
+        push(@errors,'ERROR: Difficulty cannot be zero or empty') unless($value);
+        return $self->processErrors(\@errors) if(scalar(@errors));
         #Set karma values
         $self->setKarmaScale($value);
         my $karmaScale = $self->get("karmaScale");
         my $karmaRank  = sprintf("%.2f",$self->get("karmaRank"));
         return "{ value: '$karmaScale', username:'$username', karmaRank:'$karmaRank'}";
     }
-    
+
     #Handle meta field posts
+    push(@errors,'ERROR: You do not have permission to edit the values of this ticket') unless ($self->canUpdate);
+    push(@errors,'ERROR: No fieldId passed in.') unless ($fieldId);
+    
+    #Get the meta field properties
     my $field = $self->getParent->getHelpDeskMetaField($fieldId);
+    #Get the value of the field
+    my $value     = $session->form->get("field_".$fieldId,$field->{dataType});
     if($field->{required} && $value eq "") {
         push(@errors,'ERROR: '.$field->{label}.' cannot be empty.  Please enter a value');
     }
@@ -1526,17 +2182,19 @@ Properly sets who the ticket is assigned to.
 =cut
 
 sub www_setAssignment {
-    my $self       = shift;
-    my $session    = $self->session;
+    my $self        = shift;
+    my $session     = $self->session;
+    my $i18n        = $self->i18n;
 
-    my $assignedTo = $session->form->get("assignedTo");
-    my @errors     = ();
+    my $assignedTo  = $session->form->get("assignedTo");
+    my $nowAssigned = $self->get("assignedTo");
+    my @errors      = ();
     
     #Set the mime type
     $session->http->setMimeType( 'application/json' );
     
     #Process Errors
-    unless ($self->getParent->canEdit) {
+    unless ($self->canAssign) {
         push(@errors,'You do not have permission to assign this ticket');
     }
     unless ($assignedTo) {
@@ -1569,13 +2227,63 @@ sub www_setAssignment {
      #Log the change in assignment
     $self->logHistory("Assigned to ".$username);
 
-    #Return the data
+    #Subscribe the user assigned
+    if($assignedTo) {
+        $self->subscribe($assignedTo);
+        #Notify the user
+        $self->sendMail({
+            toUser  => $assignedTo,
+            subject => $i18n->get("notification_assignment_subject"),
+            message => sprintf($i18n->get("notification_assignment_message"),$self->getUrl,$self->getTitle),
+        });
+    }
 
+    #Unsubscribe the user that was assigned
+    if($nowAssigned) {
+        $self->unsubscribe($nowAssigned);
+        #Notify the user
+        $self->sendMail({
+            toUser  => $nowAssigned,
+            subject => $i18n->get("notification_assignment_subject"),
+            message => sprintf($i18n->get("notification_unassignment_message"),$self->getUrl,$self->getTitle),
+        });
+    }
+
+    #Notify the user that the ticket has had a change in assignment
+    my $userMsg = $assignedTo
+                ? $i18n->get("notification_owner_assignment_message")
+                : $i18n->get("notification_owner_unassignment_message")
+                ;
+
+    $self->sendMail({
+        toUser  => $self->get("createdBy"),
+        subject => $i18n->get("notification_assignment_subject"),
+        message => sprintf($userMsg,$self->getUrl,$self->getTitle,$username),
+    });
+
+    #Return the data
     return encode_json({
         assignedTo   => $username,
         dateAssigned => $session->datetime->epochToSet($dateAssigned),
         assignedBy   => WebGUI::User->new($session,$userId)->username,
     });
+}
+
+#----------------------------------------------------------------------------
+
+=head2 www_subscribe ( ) 
+
+User friendly method that subscribes the user to the ticket (doesn't return JSON)
+
+=cut
+
+sub www_subscribe {
+    my $self      = shift;
+
+    return $self->session->privilege->insufficient  unless $self->getParent->canSubscribe;
+    
+    $self->www_toggleSubscription;
+    return "";
 }
 
 #----------------------------------------------------------------------------
@@ -1592,18 +2300,12 @@ sub www_toggleSubscription {
     my $i18n      = $self->i18n;
     my $parent    = $self->getParent;
 
-    #Create the subscription group if it doesn't yet exist
-    my $group  = $self->getSubscriptionGroup();    
     my @errors = ();
 
     $session->http->setMimeType( 'application/json' );
    
     unless ($parent->canSubscribe) {
-        push(@errors,'You do not have permission to subscribe to this Help Desk');
-    }
-
-    if($parent->isSubscribed) {
-        push(@errors,'You are already subscribed to the Help Desk.  Please unsubscribe from the Help Desk before continuing');    
+        push(@errors,'You do not have permission to subscribe to this Ticket');
     }
 
     if(scalar(@errors)) {    
@@ -1614,15 +2316,15 @@ sub www_toggleSubscription {
     }
 
     my $returnStr = "";
-    if($self->isSubscribed) {
+    if($self->isSubscribedToTicket) {
         #unsubscribe the user
-        $group->deleteUsers([$session->user->userId]);
+        $self->unsubscribe;
         #return the subscribe text (opposite)
         $returnStr = $i18n->get("subscribe_link");
     }
     else {
         #subscribe the user
-        $group->addUsers([$self->session->user->userId]);
+        $self->subscribe;
         #return the unsubscribe test (opposite)
         $returnStr = $i18n->get("unsubscribe_link");
     }
@@ -1694,6 +2396,23 @@ sub www_showConfirmation {
 
 #----------------------------------------------------------------------------
 
+=head2 www_unsubscribe ( ) 
+
+User friendly method that unsubscribes the user from the ticket (doesn't return JSON)
+
+=cut
+
+sub www_unsubscribe {
+    my $self      = shift;
+
+    return $self->session->privilege->insufficient  unless $self->getParent->canSubscribe;
+    
+    $self->www_toggleSubscription;
+    return "";
+}
+
+#----------------------------------------------------------------------------
+
 =head2 www_uploadFile ( ) 
 
 Properly uploads a file to it's storage location
@@ -1703,6 +2422,7 @@ Properly uploads a file to it's storage location
 sub www_uploadFile {
     my $self      = shift;
     my $session   = $self->session;
+    my $i18n      = $self->i18n;
     
     unless ($self->getParent->canPost) {
         return "{
@@ -1711,19 +2431,15 @@ sub www_uploadFile {
         }";
     }
     
-    my $storageId = $self->get("storageId");
-    my $store     = undef;    
-    if ($storageId) {
-        $store = WebGUI::Storage->get($session,$storageId);
-    }
-    else {
-        #No storageId - create one and update the asset
-        $store = WebGUI::Storage->create($session);
-        $self->update({ storageId=>$store->getId });
-    }
+    #Get the storage location
+    my $store  = $self->getStorageLocation;    
     
     #Upload the file
     $store->addFileFromFormPost("attachment");
+
+    #Notify subscribers
+    $self->notifySubscribers({ content=>$i18n->get("notification_new_file_message") });
+    
     return "{}";
 }
 

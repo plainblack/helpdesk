@@ -15,13 +15,18 @@
 
 
 <div id="container">
-<tmpl_if canPost><a href="<tmpl_var url_addTicket>">New Support Request +</a></tmpl_if><tmpl_if canEditAndPost>&nbsp;&bull;&nbsp;</tmpl_if><tmpl_if canEdit><a href="<tmpl_var url_manageMetaData>">Manage Meta Fields</a></tmpl_if><tmpl_if canPost>&nbsp;&bull;&nbsp;</tmpl_if><a href="javascript:void(0);" id="hdSubscribeLink"><tmpl_var subscribe_label></a><br />
+<tmpl_if canPost><a href="<tmpl_var url_addTicket>">New Support Request +</a></tmpl_if><tmpl_if canEditAndPost>&nbsp;&bull;&nbsp;</tmpl_if><tmpl_if canEdit><a href="<tmpl_var url_manageMetaData>">Manage Meta Fields</a></tmpl_if><tmpl_if canPost>&nbsp;&bull;&nbsp;</tmpl_if><tmpl_if canSubscribe><a href="javascript:void(0);" id="hdSubscribeLink"><tmpl_var subscribe_label></a></tmpl_if><br />
 </div>
 
 <script type="text/javascript">
+<tmpl_if canSubscribe>
 /************************  SUBSCRIPTION *************************/
 var subscribeUrl = '<tmpl_var url_subscribe>';
 var handleSubscribe = function(evt) {
+    var url = subscribeUrl;
+    if(WebGUI.Ticket) {
+        url += ";assetId=" + WebGUI.Ticket.assetId;
+    }
     var oCallback = {
         success: function(o) {
             var response = eval('(' + o.responseText + ')');
@@ -38,10 +43,11 @@ var handleSubscribe = function(evt) {
         },
         failure: function(o) {}
     };
-    YAHOO.util.Connect.asyncRequest('GET', subscribeUrl, oCallback);
+    YAHOO.util.Connect.asyncRequest('GET', url, oCallback);
 }
 
 YAHOO.util.Event.addListener("hdSubscribeLink","click",handleSubscribe);
+</tmpl_if>
 
 /************************  TABS *************************/
 var tabView = new YAHOO.widget.TabView();
@@ -55,14 +61,14 @@ YAHOO.example.init = function() {
         dataSrc: '<tmpl_var url_viewAll>',
         active: true
     }), tabView);
-
+    <tmpl_if canPost>
     YAHOO.plugin.Dispatcher.delegate (new YAHOO.widget.Tab({
         label: 'My Tickets',
         cacheData: false,
         dataSrc: '<tmpl_var url_viewMy>',
         active: false
     }),tabView);
-
+    </tmpl_if>
     YAHOO.plugin.Dispatcher.delegate (new YAHOO.widget.Tab({
         label: 'Search',
         cacheData: false,
