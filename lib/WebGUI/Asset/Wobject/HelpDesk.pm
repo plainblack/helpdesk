@@ -16,7 +16,7 @@ use strict;
 use Tie::IxHash;
 use WebGUI::International;
 use WebGUI::Utility;
-use JSON qw( decode_json encode_json );
+use JSON;
 use base 'WebGUI::Asset::Wobject';
 
 #-------------------------------------------------------------------
@@ -478,7 +478,7 @@ sub definition {
 		},
         closeTicketsAfter =>{
 			fieldType       => "interval",
-			defaultValue    => 300,
+			defaultValue    => 1209600,
 			tab             => 'properties',
 			label           => $i18n->echo("Close Tickets After"),
 			hoverHelp       => $i18n->echo("Resolved tickets get closed after this period of time"),            
@@ -1081,7 +1081,7 @@ sub www_getAllTickets {
     }
 
     my $recordOffset        = $form->get( 'recordOffset' ) || 1;
-    my $rowsPerPage         = $form->get( 'rowsPerPage' ) || 10;
+    my $rowsPerPage         = $form->get( 'rowsPerPage' ) || 25;
     my $currentPage         = int ( $recordOffset / $rowsPerPage ) + 1;
     
     my $p = WebGUI::Paginator->new( $session, '', $rowsPerPage, 'pn', $currentPage );
@@ -1134,7 +1134,7 @@ sub www_getAllTickets {
     }
     
     $session->http->setMimeType( 'application/json' );
-    return encode_json( $ticketInfo );
+    return JSON->new->encode( $ticketInfo );
 }
 
 #-------------------------------------------------------------------
@@ -1396,7 +1396,7 @@ sub www_searchTickets {
     my $orderByDirection = lc $form->get( 'orderByDirection' ) eq "asc" ? "ASC" : "DESC";
     
     my $recordOffset     = $form->get( 'recordOffset' ) || 1;
-    my $rowsPerPage      = $form->get( 'rowsPerPage' ) || 10;
+    my $rowsPerPage      = $form->get( 'rowsPerPage' ) || 25;
     my $currentPage      = int ( $recordOffset / $rowsPerPage ) + 1;
 
     #Set some initial ticket info
@@ -1410,7 +1410,7 @@ sub www_searchTickets {
 
     #By default don't return any search results   
     unless ($form->get("action") eq "search") {
-        return encode_json( $ticketInfo );
+        return JSON->new->encode( $ticketInfo );
     }
 
     #Process Search Form
@@ -1586,7 +1586,7 @@ sub www_searchTickets {
         push @{ $ticketInfo->{ tickets } }, \%fields;
     }
     
-    return encode_json( $ticketInfo );
+    return JSON->new->encode( $ticketInfo );
 }
 
 #----------------------------------------------------------------------------
@@ -1629,7 +1629,7 @@ sub www_toggleSubscription {
     }
 
     if(scalar(@errors)) {    
-        return encode_json({
+        return JSON->new->encode({
             hasError =>"true",
             errors   =>\@errors
         });
@@ -1771,7 +1771,7 @@ sub install {
         assetId VARCHAR(22) BINARY NOT NULL,
         revisionDate BIGINT NOT NULL,
         ticketId mediumint not null,
-        ticketStatus VARCHAR(30) NOT NULL default 'pending',
+        ticketStatus VARCHAR(30) NOT NULL default 'pending';
         assigned tinyint(1) NOT NULL default 0,
         assignedTo VARCHAR(22) BINARY default NULL,
         assignedBy VARCHAR(22) BINARY default NULL,

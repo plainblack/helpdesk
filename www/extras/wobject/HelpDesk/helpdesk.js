@@ -183,8 +183,8 @@ WebGUI.HelpDesk = function (configs) {
         return new Paginator({
             containers         : this._configs.p_containers,
             pageLinks          : 5,
-            rowsPerPage        : 10,
-            rowsPerPageOptions : [10,25,50,100],
+            rowsPerPage        : 25,
+            rowsPerPageOptions : [25,50,100],
             template           : "<strong>{CurrentPageReport}</strong> {PreviousPageLink} {PageLinks} {NextPageLink} {RowsPerPageDropdown}"
         });
     };

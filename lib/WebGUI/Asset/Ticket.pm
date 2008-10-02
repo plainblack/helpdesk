@@ -16,7 +16,7 @@ package WebGUI::Asset::Ticket;
 
 use strict;
 use Tie::IxHash;
-use JSON qw( decode_json encode_json );
+use JSON;
 use base 'WebGUI::Asset';
 use WebGUI::Utility;
 
@@ -331,7 +331,7 @@ sub get {
 	my $self = shift;
 	my $param = shift;
 	if ($param eq 'comments') {
-		return decode_json($self->SUPER::get('comments')||'[]');
+		return JSON->new->decode($self->SUPER::get('comments')||'[]');
 	}
 	return $self->SUPER::get($param, @_);
 }
@@ -937,7 +937,7 @@ sub processErrors {
         errors   =>$errors
     };
 
-    return encode_json( $errorHash );
+    return JSON->new->encode( $errorHash );
 }
 
 
@@ -1393,12 +1393,12 @@ sub update {
         my $comments = $properties->{comments};
         $comments = [] unless ($comments);
         if (ref $comments ne 'ARRAY') {
-            $comments = eval{decode_json($comments)};
+            $comments = eval{JSON->new->decode($comments)};
             if (WebGUI::Error->caught) {
                 $comments = [];
             }
         }
-        $properties->{comments} = encode_json($comments);
+        $properties->{comments} = JSON->new->encode($comments);
     }
    
 	if (exists $properties->{title}) {
@@ -1501,7 +1501,7 @@ sub view {
 
     #Set up some data to return to the ticket page for display purposes
     $var->{'username'         } = $user->username;
-    $var->{'statusValues'     } = encode_json($parent->getStatus);
+    $var->{'statusValues'     } = JSON->new->encode($parent->getStatus);
 
     #Create URLs for post backs
     $var->{'url_ticketMgr'    } = $parent->getUrl;
@@ -2047,7 +2047,7 @@ sub www_postComment {
     my $avgRating    = $self->get("averageRating");
 
     #Return JSON to the page
-    return encode_json({
+    return JSON->new->encode({
         averageRating      => sprintf("%.1f", $avgRating),
         averageRatingImage => $self->getAverageRatingImage($avgRating),
         solutionSummary    => $self->get("solutionSummary"),
@@ -2086,7 +2086,7 @@ sub www_postKeywords {
         asArrayRef =>1
     });
 
-    return encode_json( { keywords=>$keywords } );
+    return JSON->new->encode( { keywords=>$keywords } );
 }
 
 #----------------------------------------------------------------------------
@@ -2262,7 +2262,7 @@ sub www_setAssignment {
     });
 
     #Return the data
-    return encode_json({
+    return JSON->new->encode({
         assignedTo   => $username,
         dateAssigned => $session->datetime->epochToSet($dateAssigned),
         assignedBy   => WebGUI::User->new($session,$userId)->username,
@@ -2309,7 +2309,7 @@ sub www_toggleSubscription {
     }
 
     if(scalar(@errors)) {    
-        return encode_json({
+        return JSON->new->encode({
             hasError =>"true",
             errors   =>\@errors
         });
@@ -2364,7 +2364,7 @@ sub www_transferKarma {
     $self->transferKarma($karma);
     
     #Get the current values from the object to return
-    return encode_json({
+    return JSON->new->encode({
         karma     => $self->get("karma"),
         karmaRank => sprintf("%.2f",$self->get("karmaRank")),
         karmaLeft => $session->user->karma,

@@ -29,7 +29,7 @@ form {
     overflow: auto;
     height: 310px;   
 }   
-.searchBtn {
+.hd_searchBtn {
     background-color:silver;
     color:white;
     border:solid gray 1px;
