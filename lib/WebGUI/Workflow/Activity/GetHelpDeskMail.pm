@@ -165,7 +165,7 @@ sub execute {
         if ($message->{inReplyTo} && $message->{inReplyTo} =~ m/cs\-([\w_-]{22})\@/) {
 			my $id = $1;
             #Look up the mapping to the ticketId
-            my ($ticketId) = $db->quickArray("select mapToAssetId from Ticket_collabRef where origAssetId=?",[$id]);
+            my ($ticketId) = $session->db->quickArray("select mapToAssetId from Ticket_collabRef where origAssetId=?",[$id]);
             if($ticketId) {
                 $ticket = WebGUI::Asset->newByDynamicClass($session, $ticketId);
                 $isSubscribed = $isSubscribed || $ticket->isSubscribedToTicket($userId);  #subscribed to the ticket?
@@ -373,7 +373,9 @@ sub scrubHTML {
             || $tag eq "blockquote"
             || ($tag eq "hr" && $attr->{id} eq "EC_stopSpelling")  #Hotmail / MSN
             || ($tag eq "div" && $attr->{class} eq "gmail_quote")  #Gmail
-            || ($tag eq "table" && $attr->{id} eq "hd_notification"))
+            || ($tag eq "table" && $attr->{id} eq "hd_notification") #Original Posts (responses)
+            || ($tag eq "table" && $attr->{border} == 0 && $attr->{cellspacing} == 2 && $attr->{cellpadding} == 3) #From Collab Systems
+            ) 
         ) {
             $skip = 1;
             $checkTag  = $tag;
