@@ -1831,6 +1831,13 @@ sub install {
         karmaRank FLOAT default NULL,
         PRIMARY KEY  (assetId)
     )");
+
+    $session->db->write("CREATE TABLE Ticket_collabRef (
+        origAssetId VARCHAR(22) BINARY NOT NULL,
+        mapToAssetId VARCHAR(22) BINARY NOT NULL,
+        PRIMARY KEY  (origAssetId)
+    )");
+    
     
     #Create row in incrementer table
     $session->db->write("insert into incrementer (incrementerId,nextValue) values ('ticketId',1)");

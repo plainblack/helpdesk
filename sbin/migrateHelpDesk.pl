@@ -132,44 +132,44 @@ tie my %alumnibugs, "Tie::IxHash";
 );
 
 my $collabs = {
-    #"ybiC9afs4PE3F3-PUJ8yvA" => {
-    #    userDefined1 => {
-    #        label          => "Severity",
-    #        dataType       => "SelectBox",
-    #        possibleValues => "cosmetic|Cosmetic (misspelling, formatting problems)\r\nminor|Minor (annoying, but not harmful)\r\ncritical|Critical (mostly not working)\r\nfatal|Fatal (can\'t continue until this is resolved)",
-    #        valuesMap      => \%severities
-    #    },
-    #    userDefined2 => {
-    #        label          => "WebGUI Version",
-    #        dataType       => "Text",
-    #    },
-    #    userDefined3 => {
-    #        label          => "WRE Version",
-    #        dataType       => "Text"
-    #    },
-    #    userDefined4 => {
-    #        label          => "Operating System",
-    #        dataType       => "Text"
-    #    },        
-    #},
-    #"fBchvnfEp1zn8dTxr_-CAw" => {
-    #    userDefined1 => {
-    #        label          => "Severity",
-    #        dataType       => "SelectBox",
-    #        possibleValues => "cosmetic|Cosmetic (misspelling, formatting problems)\r\nminor|Minor (annoying, but not harmful)\r\ncritical|Critical (mostly not working)\r\nfatal|Fatal (can\'t continue until this is resolved)",
-    #        valuesMap      => \%severities
-    #    },
-    #    userDefined2 => {
-    #        label          => "What's the bug in?",
-    #        dataType       => "SelectBox",
-    #        possibleValues => "stable|WebGUI Stable\r\nbeta|WebGUI Beta\r\nhelp|WebGUI Help\r\ntranslation|WebGUI Translation\r\nbooks|WebGUI Books\r\nwre|WRE\r\nplainblack|plainblack.com\r\nwebgui|webgui.org",
-    #        valuesMap      => \%bugreports
-    #    },
-    #    userDefined3 => {
-    #        label          => "WebGUI / WRE Version",
-    #        dataType       => "Text"
-    #    },
-    #},
+    "ybiC9afs4PE3F3-PUJ8yvA" => {
+        userDefined1 => {
+            label          => "Severity",
+            dataType       => "SelectBox",
+            possibleValues => "cosmetic|Cosmetic (misspelling, formatting problems)\r\nminor|Minor (annoying, but not harmful)\r\ncritical|Critical (mostly not working)\r\nfatal|Fatal (can\'t continue until this is resolved)",
+            valuesMap      => \%severities
+        },
+        userDefined2 => {
+            label          => "WebGUI Version",
+            dataType       => "Text",
+        },
+        userDefined3 => {
+            label          => "WRE Version",
+            dataType       => "Text"
+        },
+        userDefined4 => {
+            label          => "Operating System",
+            dataType       => "Text"
+        },        
+    },
+    "fBchvnfEp1zn8dTxr_-CAw" => {
+        userDefined1 => {
+            label          => "Severity",
+            dataType       => "SelectBox",
+            possibleValues => "cosmetic|Cosmetic (misspelling, formatting problems)\r\nminor|Minor (annoying, but not harmful)\r\ncritical|Critical (mostly not working)\r\nfatal|Fatal (can\'t continue until this is resolved)",
+            valuesMap      => \%severities
+        },
+        userDefined2 => {
+            label          => "What's the bug in?",
+            dataType       => "SelectBox",
+            possibleValues => "stable|WebGUI Stable\r\nbeta|WebGUI Beta\r\nhelp|WebGUI Help\r\ntranslation|WebGUI Translation\r\nbooks|WebGUI Books\r\nwre|WRE\r\nplainblack|plainblack.com\r\nwebgui|webgui.org",
+            valuesMap      => \%bugreports
+        },
+        userDefined3 => {
+            label          => "WebGUI / WRE Version",
+            dataType       => "Text"
+        },
+    },
     "gjWvDY8oNwaXx37Sx3y_tg" => {
          userDefined2 => {
             label          => "What to improve?",
@@ -178,52 +178,52 @@ my $collabs = {
             valuesMap      => \%bugreports
         },
     },
-    #"N1-BkACXoerXrWzl9Uc3BQ" => {
-    #    userDefined1 => {
-    #        label          => "Severity",
-    #        dataType       => "SelectBox",
-    #        possibleValues => "cosmetic|Cosmetic (misspelling, formatting problems)\r\nminor|Minor (annoying, but not harmful)\r\ncritical|Critical (mostly not working)\r\nfatal|Fatal (can\'t continue until this is resolved)",
-    #        valuesMap      => \%severities
-    #    },
-    #    userDefined2 => {
-    #        label          => "What's the bug in?",
-    #        dataType       => "SelectBox",
-    #        possibleValues => "stable|WebGUI Stable\r\nbeta|WebGUI Beta\r\nhelp|WebGUI Help\r\ntranslation|WebGUI Translation\r\nbooks|WebGUI Books\r\nwre|WRE\r\nplainblack|plainblack.com\r\nwebgui|webgui.org",
-    #        valuesMap      => \%bugreports
-    #    },
-    #    userDefined3 => {
-    #        label          => "WebGUI / WRE Version",
-    #        dataType       => "Text"
-    #    },
-    #},
-    #"GZ_etc22H0GYXp10z2Zlww" => {
-    #    userDefined1 => {
-    #        label          => "Severity",
-    #        dataType       => "SelectBox",
-    #        possibleValues => "cosmetic|Cosmetic (misspelling, formatting problems)\r\nminor|Minor (annoying, but not harmful)\r\ncritical|Critical (mostly not working)\r\nfatal|Fatal (can\'t continue until this is resolved)",
-    #        valuesMap      => \%severities
-    #    },
-    #    userDefined2 => {
-    #        label          => "What's the bug in?",
-    #        dataType       => "SelectBox",
-    #        possibleValues => "not_sure|Not Sure\r\nalumni_news|Alumni News\r\ncareer_development|Career Development\r\ncontact_info|Contact Info\r\ncountry_manager|Country Manager\r\ncommunity_manager|Community Manager\r\ncreate_guest_account|Create Guest Account\r\ndocumentation|Documentation\r\nevents_calendar|Events Calendar\r\nfind_fellow_alumni|Find Fellow Alumni\r\nglobal_history|Global History\r\ngrant_opportunities|Grant Opportunities\r\ninterests_manager|Interests Manager\r\nmass_mail|Mass Mail\r\nphoto_gallery|Photo Gallery\r\nprogram_agency_manager|Program Agency Manager\r\nprogram_manager|Program Manager\r\nqa_live|Q&A Live\r\nregistration|Registration\r\nregion_manager|Region Manager\r\nsite_design|Site Design\r\nupdate_your_profile|Update Your Profile\r\nuser_manager|User Manager\r\nother|Other",
-    #        valuesMap      => \%alumnibugs
-    #    },
-    #},
-    #"VjPPoL1wpAKGhx1pIVL44w" => {
-    #    userDefined1 => {
-    #        label          => "Severity",
-    #        dataType       => "SelectBox",
-    #        possibleValues => "cosmetic|Cosmetic (misspelling, formatting problems)\r\nminor|Minor (annoying, but not harmful)\r\ncritical|Critical (mostly not working)\r\nfatal|Fatal (can\'t continue until this is resolved)",
-    #        valuesMap      => \%severities
-    #    },
-    #    userDefined2 => {
-    #        label          => "What's the bug in?",
-    #        dataType       => "SelectBox",
-    #        possibleValues => "not_sure|Not Sure\r\nalumni_news|Alumni News\r\ncareer_development|Career Development\r\ncontact_info|Contact Info\r\ncountry_manager|Country Manager\r\ncommunity_manager|Community Manager\r\ncreate_guest_account|Create Guest Account\r\ndocumentation|Documentation\r\nevents_calendar|Events Calendar\r\nfind_fellow_alumni|Find Fellow Alumni\r\nglobal_history|Global History\r\ngrant_opportunities|Grant Opportunities\r\ninterests_manager|Interests Manager\r\nmass_mail|Mass Mail\r\nphoto_gallery|Photo Gallery\r\nprogram_agency_manager|Program Agency Manager\r\nprogram_manager|Program Manager\r\nqa_live|Q&A Live\r\nregistration|Registration\r\nregion_manager|Region Manager\r\nsite_design|Site Design\r\nupdate_your_profile|Update Your Profile\r\nuser_manager|User Manager\r\nother|Other",
-    #        valuesMap      => \%alumnibugs
-    #    },
-    #},
+    "N1-BkACXoerXrWzl9Uc3BQ" => {
+        userDefined1 => {
+            label          => "Severity",
+            dataType       => "SelectBox",
+            possibleValues => "cosmetic|Cosmetic (misspelling, formatting problems)\r\nminor|Minor (annoying, but not harmful)\r\ncritical|Critical (mostly not working)\r\nfatal|Fatal (can\'t continue until this is resolved)",
+            valuesMap      => \%severities
+        },
+        userDefined2 => {
+            label          => "What's the bug in?",
+            dataType       => "SelectBox",
+            possibleValues => "stable|WebGUI Stable\r\nbeta|WebGUI Beta\r\nhelp|WebGUI Help\r\ntranslation|WebGUI Translation\r\nbooks|WebGUI Books\r\nwre|WRE\r\nplainblack|plainblack.com\r\nwebgui|webgui.org",
+            valuesMap      => \%bugreports
+        },
+        userDefined3 => {
+            label          => "WebGUI / WRE Version",
+            dataType       => "Text"
+        },
+    },
+    "GZ_etc22H0GYXp10z2Zlww" => {
+        userDefined1 => {
+            label          => "Severity",
+            dataType       => "SelectBox",
+            possibleValues => "cosmetic|Cosmetic (misspelling, formatting problems)\r\nminor|Minor (annoying, but not harmful)\r\ncritical|Critical (mostly not working)\r\nfatal|Fatal (can\'t continue until this is resolved)",
+            valuesMap      => \%severities
+        },
+        userDefined2 => {
+            label          => "What's the bug in?",
+            dataType       => "SelectBox",
+            possibleValues => "not_sure|Not Sure\r\nalumni_news|Alumni News\r\ncareer_development|Career Development\r\ncontact_info|Contact Info\r\ncountry_manager|Country Manager\r\ncommunity_manager|Community Manager\r\ncreate_guest_account|Create Guest Account\r\ndocumentation|Documentation\r\nevents_calendar|Events Calendar\r\nfind_fellow_alumni|Find Fellow Alumni\r\nglobal_history|Global History\r\ngrant_opportunities|Grant Opportunities\r\ninterests_manager|Interests Manager\r\nmass_mail|Mass Mail\r\nphoto_gallery|Photo Gallery\r\nprogram_agency_manager|Program Agency Manager\r\nprogram_manager|Program Manager\r\nqa_live|Q&A Live\r\nregistration|Registration\r\nregion_manager|Region Manager\r\nsite_design|Site Design\r\nupdate_your_profile|Update Your Profile\r\nuser_manager|User Manager\r\nother|Other",
+            valuesMap      => \%alumnibugs
+        },
+    },
+    "VjPPoL1wpAKGhx1pIVL44w" => {
+        userDefined1 => {
+            label          => "Severity",
+            dataType       => "SelectBox",
+            possibleValues => "cosmetic|Cosmetic (misspelling, formatting problems)\r\nminor|Minor (annoying, but not harmful)\r\ncritical|Critical (mostly not working)\r\nfatal|Fatal (can\'t continue until this is resolved)",
+            valuesMap      => \%severities
+        },
+        userDefined2 => {
+            label          => "What's the bug in?",
+            dataType       => "SelectBox",
+            possibleValues => "not_sure|Not Sure\r\nalumni_news|Alumni News\r\ncareer_development|Career Development\r\ncontact_info|Contact Info\r\ncountry_manager|Country Manager\r\ncommunity_manager|Community Manager\r\ncreate_guest_account|Create Guest Account\r\ndocumentation|Documentation\r\nevents_calendar|Events Calendar\r\nfind_fellow_alumni|Find Fellow Alumni\r\nglobal_history|Global History\r\ngrant_opportunities|Grant Opportunities\r\ninterests_manager|Interests Manager\r\nmass_mail|Mass Mail\r\nphoto_gallery|Photo Gallery\r\nprogram_agency_manager|Program Agency Manager\r\nprogram_manager|Program Manager\r\nqa_live|Q&A Live\r\nregistration|Registration\r\nregion_manager|Region Manager\r\nsite_design|Site Design\r\nupdate_your_profile|Update Your Profile\r\nuser_manager|User Manager\r\nother|Other",
+            valuesMap      => \%alumnibugs
+        },
+    },
 };
 
 foreach my $collabId (keys %{$collabs}) {
@@ -371,6 +371,7 @@ foreach my $collabId (keys %{$collabs}) {
             url               => $url,
             ownerUserId       => $thread->get("ownerUserId"),
             synopsis          => scrubHTML($thread->get("content")),
+            isHidden          => 1,
             ticketId          => $session->db->getNextId("ticketId"),
             ticketStatus      => $status,
             karmaScale        => $thread->get("karmaScale"),
@@ -396,7 +397,10 @@ foreach my $collabId (keys %{$collabs}) {
         #Create the storage location for the ticket and copy all the files
         my $newstore = $ticket->getStorageLocation;
         my $oldstore = $thread->getStorageLocation;
-        $newstore->copy($oldstore);
+        $oldstore->copy($newstore);
+
+        #Insert the thread assetId mapping reference.
+        $db->write("insert into Ticket_collabRef values (?,?)",[$threadId,$ticket->getId]);
     
         #Convert all the posts into comments
         my $posts = $thread->getLineage(["descendants"],{
@@ -448,7 +452,7 @@ foreach my $collabId (keys %{$collabs}) {
             #Copy all the uplaods to the ticket
             my $poststore = $post->getStorageLocation;
             if($poststore) {
-                $newstore->copy($poststore);
+                $poststore->copy($newstore);
             }
             if(++$index == $postCount) {
                 $ticket->update({
@@ -456,6 +460,8 @@ foreach my $collabId (keys %{$collabs}) {
                     lastReplyBy   => $post->get("ownerUserId")
                 });
             }
+            #Insert the thread assetId mapping reference.
+            $db->write("insert into Ticket_collabRef values (?,?)",[$post->getId,$ticket->getId]);
             $post->purge unless($test); #Delete the post 
             $post = undef;
         }

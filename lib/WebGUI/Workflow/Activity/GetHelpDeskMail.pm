@@ -110,7 +110,8 @@ sub execute {
     my $rejectedMsg         = $i18n->get("rejected");
     my $noAccountMsg        = $i18n->get("rejected because no user account");
     my $notAllowedMsg       = $i18n->get("rejected because not allowed");
-    my $noSubscribeMsg      = $i18n->get("rejected because no subscription"); 
+    my $noSubscribeMsg      = $i18n->get("rejected because no subscription");
+    my $noReplyToMsg        = $i18n->get("rejected because no replyToFound");
 
 	while (my $message = $mail->getNextMessage) {
         #Restore the admin user
@@ -159,6 +160,18 @@ sub execute {
 		my $ticket       = undef;
         my $userId       = $user->userId;
         my $isSubscribed = $hd->isSubscribed($userId); #subscribed to the help desk?
+
+        #Handle replies to a CS that are still coming i
+        if ($message->{inReplyTo} && $message->{inReplyTo} =~ m/cs\-([\w_-]{22})\@/) {
+			my $id = $1;
+            #Look up the mapping to the ticketId
+            my ($ticketId) = $db->quickArray("select mapToAssetId from Ticket_collabRef where origAssetId=?",[$id]);
+            if($ticketId) {
+                $ticket = WebGUI::Asset->newByDynamicClass($session, $ticketId);
+                $isSubscribed = $isSubscribed || $ticket->isSubscribedToTicket($userId);  #subscribed to the ticket?
+            }
+		}
+
         if ($message->{inReplyTo} && $message->{inReplyTo} =~ m/ticket\-([\w_-]{22})\@/) {
 			my $id = $1;
 			$ticket = WebGUI::Asset->newByDynamicClass($session, $id);
