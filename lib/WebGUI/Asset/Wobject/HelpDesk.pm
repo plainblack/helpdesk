@@ -1771,7 +1771,7 @@ sub install {
         assetId VARCHAR(22) BINARY NOT NULL,
         revisionDate BIGINT NOT NULL,
         ticketId mediumint not null,
-        ticketStatus VARCHAR(30) NOT NULL default 'pending';
+        ticketStatus VARCHAR(30) NOT NULL default 'pending',
         assigned tinyint(1) NOT NULL default 0,
         assignedTo VARCHAR(22) BINARY default NULL,
         assignedBy VARCHAR(22) BINARY default NULL,
