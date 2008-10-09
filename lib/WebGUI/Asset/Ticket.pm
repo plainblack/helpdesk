@@ -147,7 +147,7 @@ sub canView{
         return 1 if($self->canUpdate);
         return 0;
     }
-    return $self->SUPER::canView($userId);
+    return $self->getParent->canView($userId);
 }
 
 #-------------------------------------------------------------------
