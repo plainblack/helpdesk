@@ -752,9 +752,10 @@ sub notifySubscribers {
    
     #Set the messageId
     $props->{'messageId'} = "ticket-".$self->getId.'@'.$domain;
-    $props->{'replyId'  } = "";
-
-    if ($self->isReply) {
+    if ($props->{newTicket}) {
+        delete $props->{newTicket};
+    }
+    else {
         $props->{'replyId'} = $props->{'messageId'};
     }
 
