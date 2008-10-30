@@ -1709,7 +1709,7 @@ sub install {
 	my $session = WebGUI::Session->open($home, $config);
     
     #Add wobject to config file
-	$session->config->addToArray("assets",$className);
+	$session->config->set("assets/$classname/category", 'intranet');
 
     #Create database tables
     $session->db->write("CREATE TABLE HelpDesk (
