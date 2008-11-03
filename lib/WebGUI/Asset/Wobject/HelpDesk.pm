@@ -1912,7 +1912,7 @@ sub uninstall {
 	my $session = WebGUI::Session->open($home, $config);
     
     #Delete wobject from config file
-	$session->config->deleteFromArray("assets",$className);
+	$session->config->delete("assets/$className");
     
     #Delete all assets and default templates
 	my $rs = $session->db->read(qq|

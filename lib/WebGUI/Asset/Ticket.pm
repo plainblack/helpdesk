@@ -1032,7 +1032,7 @@ asset instances, you will need to purge them here.
 
 sub purge {
 	my $self    = shift;
-    my $session = $self->shift;
+    my $session = $self->session;
     my $db      = $session->db;
 
     #Delete the subscription group
