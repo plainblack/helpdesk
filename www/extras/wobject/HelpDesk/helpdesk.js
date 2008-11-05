@@ -39,7 +39,7 @@ WebGUI.HelpDesk = function (configs) {
     }
 
     if(!this._configs.initiRequestString) {
-        this._configs.initRequestString = 'recordOffset=0';
+        this._configs.initRequestString = ';recordOffset=0';
     }
 
     ///////////////////////////////////////////////////////////////
@@ -207,24 +207,17 @@ WebGUI.HelpDesk = function (configs) {
             {
                 initialRequest         : this._configs.initRequestString,
                 generateRequest        : WebGUI.HelpDesk.buildQueryString,
+                paginationEventHandler : WebGUI.HelpDesk.handlePagination,
                 paginator              : this.getPaginator(),
-                sortedBy               : this.getDefaultSort(),
-                dynamicData            : true
+                sortedBy               : this.getDefaultSort()
             }
         );
-
-        this.helpdesk.onPaginatorChangeRequest = WebGUI.HelpDesk.handlePagination;
         this.helpdesk.subscribe("rowMouseoverEvent", this.helpdesk.onEventHighlightRow);
         this.helpdesk.subscribe("rowMouseoutEvent", this.helpdesk.onEventUnhighlightRow);
         this.helpdesk.subscribe("cellClickEvent",WebGUI.HelpDesk.loadTicket,this);
         // Override function for custom server-side sorting
         this.helpdesk.sortColumn = WebGUI.HelpDesk.sortColumn;
-
-        this.helpdesk.handleDataReturnPayload = function(oRequest, oResponse, oPayload) {
-            oPayload.totalRecords = oResponse.meta.totalRecords;
-            return oPayload;
-        };
-
+        
         //ensure no memory leaks with the datatable
         var destroyer = Dispatcher.destroyer;
         if(destroyer != null) {
