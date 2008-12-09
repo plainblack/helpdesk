@@ -397,7 +397,7 @@ sub getCommonDisplayVars {
     $var->{'assignedBy'       } = $assignedBy;
     $var->{'createdBy'        } = WebGUI::User->new($session,$var->{'createdBy'})->username;
     $var->{'creationDate'     } = $session->datetime->epochToSet($var->{'creationDate'});
-    $var->{'dateAssigned'     } = $session->datetime->epochToSet($var->{'dateAssigned'});
+    $var->{'dateAssigned'     } = $session->datetime->epochToSet($var->{'dateAssigned'}) if $var->{'dateAssigned'};
     $var->{'isPrivate'        } = $self->isPrivate;
     $var->{'solutionSummary'  } = $self->get("solutionSummary");
     
