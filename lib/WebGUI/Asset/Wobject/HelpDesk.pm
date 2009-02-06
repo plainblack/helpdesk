@@ -913,6 +913,12 @@ sub www_editHelpDeskMetaField {
 		value        => $form->get("searchable") || $data->{searchable},
 		defaultValue => 1,
 	});
+
+    $var->{'form_showInList'    } = WebGUI::Form::yesNo( $session, {
+        name            => "showInList",
+        value           => $form->get("showInList") || $data->{showInList},
+        defaultValue    => 0,
+    });
     
     $var->{'hh_possibleValues'  } = $i18n->get('hoverHelp_possibleValues');
     $var->{'form_possibleValues'} = WebGUI::Form::textarea($session, {
@@ -985,6 +991,7 @@ sub www_editHelpDeskMetaFieldSave {
 		label          => $form->process("label"),
 		dataType       => $fieldType,
 		searchable     => $searchable,
+        showInList      => $form->process("showInList","yesNo"),
 		required       => $form->process("required",'yesNo'),
 		possibleValues => $form->process("possibleValues",'textarea'),
 		defaultValues  => $form->process("defaultValues",'textarea'),
@@ -1094,6 +1101,14 @@ sub www_getAllTickets {
     $ticketInfo->{'dir'            } = $orderByDirection;
     $ticketInfo->{'tickets'        } = [];
     
+    # Determine which metadata fields we need to send
+    my $metafields   = $self->getHelpDeskMetaFields({returnHashRef => 1});
+    for my $fieldId ( keys %{$metafields} ) {
+        if ( !$metafields->{$fieldId}->{showInList} ) {
+            delete $metafields->{$fieldId};
+        }
+    }
+
     for my $record ( @{ $p->getPageData } ) {
         my $ticket = WebGUI::Asset->newByDynamicClass( $session, $record->{assetId} );
         
@@ -1129,6 +1144,12 @@ sub www_getAllTickets {
             lastReplyById => $ticket->get("lastReplyBy"),
             karmaRank     => sprintf("%.2f",$ticket->get("karmaRank")),
         );
+
+        # Add metadata fields we should show in the list
+        for my $fieldId (keys %{$metafields}) {   
+            my $field   = $metafields->{ $fieldId };
+            $fields{ "metadata_" . $fieldId } = $ticket->getTicketMetaData( $fieldId );
+        }
 
         push @{ $ticketInfo->{ tickets } }, \%fields;
     }
@@ -1239,6 +1260,18 @@ sub www_viewAllTickets {
     if($sortColumn eq "karmaRank" && !$var->{'karmaEnabled'}) {
         $sortColumn = "creationDate";
     }
+
+    # Add meta fields
+    my $metafields   = $self->getHelpDeskMetaFields({returnHashRef => 1});
+    for my $fieldId ( keys %{$metafields} ) {
+        if ( $metafields->{$fieldId}->{showInList} ) {
+            push @{$var->{meta_fields}}, {
+                key     => "metadata_" . $fieldId,
+                label   => $metafields->{$fieldId}->{label},
+            };
+        }
+    }
+
 
     $var->{'sortColumn'   } = $sortColumn;
     $var->{'sortOrder'    } = $self->get("sortOrder");
@@ -1374,6 +1407,17 @@ sub www_search {
 
     $var->{'url_pageData'  } = $self->getUrl('func=searchTickets');
 
+    # Add meta fields
+    my $metafields   = $self->getHelpDeskMetaFields({returnHashRef => 1});
+    for my $fieldId ( keys %{$metafields} ) {
+        if ( $metafields->{$fieldId}->{showInList} ) {
+            push @{$var->{meta_fields}}, {
+                key     => "metadata_" . $fieldId,
+                label   => $metafields->{$fieldId}->{label},
+            };
+        }
+    }
+
     return $self->processTemplate($var, $self->getValue("searchTemplateId"));
 }
 
@@ -1389,6 +1433,14 @@ sub www_searchTickets {
     #We are returning JSON
     $session->http->setMimeType( 'application/json' );
     
+    # Determine which metadata fields we need to send
+    my $metafields   = $self->getHelpDeskMetaFields({returnHashRef => 1});
+    for my $fieldId ( keys %{$metafields} ) {
+        if ( !$metafields->{$fieldId}->{showInList} ) {
+            delete $metafields->{$fieldId};
+        }
+    }
+
     #Initialize the page settings
     my $rowsPerPage      = 25;
 
@@ -1526,6 +1578,7 @@ sub www_searchTickets {
        
     my $sql  = qq{
         select
+            assetId,
             ticketId,
             url,
             title,
@@ -1552,6 +1605,8 @@ sub www_searchTickets {
     $ticketInfo->{'totalRecords'} = $p->getRowCount;
     
     for my $record ( @{ $p->getPageData } ) {
+        my $ticket  = WebGUI::Asset->newByDynamicClass($session, $record->{'assetId'});
+
         my $lastReplyBy = $record->{'lastReplyBy'};
         if ($lastReplyBy) {
            $lastReplyBy = WebGUI::User->new($session,$lastReplyBy)->username;
@@ -1583,6 +1638,13 @@ sub www_searchTickets {
             lastReplyById => $record->{'lastReplyBy'},
             karmaRank     => sprintf("%.2f",$record->{karmaRank}),
         );
+
+        # Add metadata fields we should show in the list
+        for my $fieldId (keys %{$metafields}) {   
+            my $field   = $metafields->{ $fieldId };
+            $fields{ "metadata_" . $fieldId } = $ticket->getTicketMetaData( $fieldId );
+        }
+
         push @{ $ticketInfo->{ tickets } }, \%fields;
     }
     

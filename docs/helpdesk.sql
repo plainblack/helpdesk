@@ -50,6 +50,7 @@ CREATE TABLE HelpDesk_metaField (
     defaultValues TEXT,
     hoverHelp TEXT,
     sequenceNumber INT(5) DEFAULT NULL,
+    showInList INT(1),
     PRIMARY KEY  (fieldId)
 );
 
