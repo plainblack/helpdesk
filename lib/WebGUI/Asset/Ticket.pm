@@ -397,7 +397,7 @@ sub getCommonDisplayVars {
     $var->{'assignedBy'       } = $assignedBy;
     $var->{'createdBy'        } = WebGUI::User->new($session,$var->{'createdBy'})->username;
     $var->{'creationDate'     } = $session->datetime->epochToSet($var->{'creationDate'});
-    $var->{'dateAssigned'     } = $session->datetime->epochToSet($var->{'dateAssigned'}) if $var->{'dateAssigned'};
+    $var->{'dateAssigned'     } = $session->datetime->epochToSet($var->{'dateAssigned'});
     $var->{'isPrivate'        } = $self->isPrivate;
     $var->{'solutionSummary'  } = $self->get("solutionSummary");
     
@@ -1041,7 +1041,7 @@ sub purge {
 
     #Delete the storage location and all the files.
     if($self->get("storageId")) {
-        my $store = WebGUI::Storeage->get($session,$self->get("storageId"));
+        my $store = WebGUI::Storage->get($session,$self->get("storageId"));
         $store->delete;
     }
 
@@ -2005,11 +2005,12 @@ sub www_postComment {
     my $form      = $session->form;
     my $comment   = shift || $form->process("comment","textarea");
     my $user      = shift || $session->user;
-
+return 	$session->privilege->insufficient unless $user->isRegistered;
     my $i18n      = $self->i18n;
     my @errors    = ();
 
     #Negate Macros on the comment
+    $comment = WebGUI::HTML::format($comment, 'text');
     WebGUI::Macro::negate(\$comment) if($comment);
     #$session->log->warn("close button clicked?".$form->get("closeTicket"));
     $session->http->setMimeType( 'application/json' );
