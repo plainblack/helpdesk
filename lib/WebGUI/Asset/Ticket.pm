@@ -878,6 +878,7 @@ sub postComment {
 
     #Set the solution summary if it was posted
     my $solution  = $session->form->process("solution","textarea");
+    $solution = WebGUI::HTML::format($solution, 'text');
     WebGUI::Macro::negate(\$solution) if($solution);
 
     #Update the Ticket.
@@ -2005,7 +2006,7 @@ sub www_postComment {
     my $form      = $session->form;
     my $comment   = shift || $form->process("comment","textarea");
     my $user      = shift || $session->user;
-return 	$session->privilege->insufficient unless $user->isRegistered;
+    return  $session->privilege->insufficient unless $user->isRegistered;
     my $i18n      = $self->i18n;
     my @errors    = ();
 
@@ -2030,7 +2031,8 @@ return 	$session->privilege->insufficient unless $user->isRegistered;
     my $rating   = $form->process('rating','commentRating',"0", { defaultRating  => "0" });
 
     #Set the solution summary if it was posted
-    my $solution  = $session->form->process("solution","textarea");
+    my $solution  = $form->process("solution","textarea");
+    $solution = WebGUI::HTML::format($solution, 'text');
     WebGUI::Macro::negate(\$solution) if($solution);
 
     my $status = $form->get("setFormStatus");
