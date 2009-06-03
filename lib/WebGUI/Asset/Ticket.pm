@@ -119,7 +119,7 @@ sub canPost {
     my $ownerId    = $self->get("createdBy");
     my $assignedTo = $self->get("assignedTo");
 
-    return 1 if $self->canUpdate;
+    return 1 if $self->canUpdate($userId);
     return $self->getParent->canPost($userId);
 
 }
@@ -144,7 +144,7 @@ sub canView{
     
     #Handle private cases
     if($self->isPrivate) {
-        return 1 if($self->canUpdate);
+        return 1 if($self->canUpdate($userId));
         return 0;
     }
     return $self->getParent->canView($userId);
@@ -768,8 +768,6 @@ sub notifySubscribers {
     my $ticketGroup   = $self->createAdHocMailGroup;
     $ticketGroup->addUsers($ticketSubGroup->getUsersNotIn($helpDeskSubGroup->getId,1));
 
-    #use Data::Dumper;
-    #$session->log->warn(Dumper($ticketGroup->getUsers));
     #Send messages to the right people for private tickets - the ticketGroup will only have users that can view the ticket
     if($self->isPrivate) {
         my $users      = $helpDeskGroup->getUsers(1);
@@ -785,6 +783,10 @@ sub notifySubscribers {
 
     #Set who the message is from
     $props->{from} = $user->profileField("email");
+
+    #use Data::Dumper;
+    #$session->log->warn(Dumper($ticketGroup->getUsers));
+    #$session->log->warn(Dumper($helpDeskGroup->getUsers));
 
     #Create mail settings for the two emails that need to go out
     my $mailTo = [{
