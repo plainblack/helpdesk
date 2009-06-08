@@ -7,7 +7,7 @@ form {
     padding: 0
 }
 .ticket_title {
-    background: #d8d8d8 url(^Extras;yui/build/assets/skins/sam/sprite.png) repeat-x;
+    background: #d8d8d8 url(../../yui/build/assets/skins/sam/sprite.png) repeat-x;
     border: solid #a3a3a3;
     border-width: 0 1px 0;
     font-family: arial;
