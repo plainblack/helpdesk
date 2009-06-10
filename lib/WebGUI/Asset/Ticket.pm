@@ -2476,7 +2476,7 @@ sub www_userSearch {
     my $query = q{
         select 
             users.userId,
-            IF(((select count(*) from userProfileData where userId=users.userId and firstName is not null and firstName <> "") + (select count(*) from userProfileData where userId=users.userId and lastName is not null and lastName <> "")) = 2,concat(lastName,", ",firstName),username) as username
+            username
         from
             users
             left join userProfileData on users.userId = userProfileData.userId

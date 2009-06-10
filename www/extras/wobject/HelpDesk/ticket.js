@@ -95,6 +95,8 @@ WebGUI.Ticket.loadField = function(o, obj) {
 
 //***********************************************************************************
 WebGUI.Ticket.postComment = function (evt, obj) {
+    YAHOO.util.Dom.get("commentsBtn").disabled = true;
+    YAHOO.util.Dom.get("commentsBtn").value = "Submitting";
     var url        = WebGUI.Ticket.postCommentUrl;
     var oCallback = {
         success: function(o) {
@@ -194,6 +196,7 @@ WebGUI.Ticket.postComment = function (evt, obj) {
                         }
                         //Easter Egg for plainblack.com
                         WebGUI.Ticket.updateKarmaMessage(response.karmaLeft);
+                        YAHOO.util.Dom.get("commentsBtn").disabled = false;
                     },
                     failure: function(o) {}
                 });
