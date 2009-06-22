@@ -218,11 +218,13 @@ WebGUI.HelpDesk = function (configs) {
         // Override function for custom server-side sorting
         this.helpdesk.sortColumn = WebGUI.HelpDesk.sortColumn;
         
+        //Work around nested scoping for the callback
+        var myHelpdesk = this.helpdesk;
         //ensure no memory leaks with the datatable
         var destroyer = Dispatcher.destroyer;
         if(destroyer != null) {
             destroyer.subscribe (function(el, config){
-                this.helpdesk.destroy();
+                myHelpdesk.destroy();
             });
         }   
     };
