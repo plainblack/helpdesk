@@ -814,6 +814,9 @@ sub view {
     if($var->{'canEdit'}) {
        $var->{'url_manageMetaData'} = $self->getUrl("func=manageHelpDeskMetaFields");
     }
+    $var->{viewAllTab} = $self->www_viewAllTickets();
+    $var->{viewMyTab} = $self->www_viewMyTickets();
+    $var->{searchTab} = $self->www_search();
 	
 	return $self->processTemplate($var, undef, $self->{_viewTemplate});
 }

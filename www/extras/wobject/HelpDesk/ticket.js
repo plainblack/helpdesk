@@ -1,6 +1,6 @@
 
 /*** The WebGUI Ticket
- * Requires: YAHOO, Dom, Event, DataSource, DataTable, Paginator, Dispatcher
+ * Requires: YAHOO, Dom, Event, DataSource, DataTable, Paginator
  *
  */
 
@@ -33,7 +33,8 @@ WebGUI.Ticket.findUsers = function(o) {
         success: function(o) {
             YAHOO.util.Dom.setStyle('userSearchIndicator','display','none');
             var userList = YAHOO.util.Dom.get('userList');
-            YAHOO.plugin.Dispatcher.process( "userList", o.responseText );
+            // YAHOO.plugin.Dispatcher.process( "userList", o.responseText );
+            userList.innerHtml = o.responseText;
         },
         failure: function(o) {}
     };            
@@ -46,7 +47,8 @@ WebGUI.Ticket.findUsers = function(o) {
 WebGUI.Ticket.loadDataTable = function( oArgs ) {
     var oCallback = {
         success: function(o) {
-            YAHOO.plugin.Dispatcher.process( WebGUI.Ticket.dataTableId, o.responseText );
+            // YAHOO.plugin.Dispatcher.process( WebGUI.Ticket.dataTableId, o.responseText );
+            YAHOO.util.Dom.get( WebGUI.Ticket.dataTableId ).innerHtml = o.responseText ;
         },
         failure: function(o) {}
     };
@@ -63,7 +65,8 @@ WebGUI.Ticket.loadField = function(o, obj) {
     var oCallback = {
         success: function(o) {
             //Use the dispatcher to insert the form and run any javascript included
-            YAHOO.plugin.Dispatcher.process("field_id_"+fieldId, o.responseText );
+            // YAHOO.plugin.Dispatcher.process("field_id_"+fieldId, o.responseText );
+            YAHOO.util.Dom.get( "field_id_"+fieldId ).innerHtml = o.responseText ;
             //Remove the current listener from the link
             var href             = YAHOO.util.Dom.getAncestorByTagName(button,"A");            
             YAHOO.util.Event.removeListener(href,'click',WebGUI.Ticket.loadField);
@@ -163,7 +166,7 @@ WebGUI.Ticket.postComment = function (evt, obj) {
                                 if(closeButton == null) {
                                     closeButton = document.createElement("INPUT");
                                     closeButton.setAttribute("type","button");
-                                    closeButton.setAttribute("value","Confirm and Close");
+                                    closeButton.setAttribute("value",WebGUI.HelpDesk.i18n.get("Asset_HelpDesk","confirm and close"));
                                     closeButton.setAttribute("name","closeBtn");
                                     closeButton.id ="closeBtn";
                                     YAHOO.util.Event.addListener(closeButton,"click", WebGUI.Ticket.postComment, { form : "commentsForm", close : true });

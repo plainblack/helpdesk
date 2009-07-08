@@ -1654,8 +1654,14 @@ sub view {
 
     #Process template and determine whether to return the parent style or not.
     my $output = $self->processTemplate($var,$parent->get("viewTicketTemplateId"));
-    unless ($var->{'callerIsTicketMgr'}) {
-        $output = $parent->processStyle($output);
+    if ($var->{'callerIsTicketMgr'}) {
+	$session->http->setMimeType( 'application/json' );
+        $output = JSON->new->encode({
+            ticketText => $output,
+            ticketId => $self->get('ticketId'),
+        });
+    } else {
+       $output = $parent->processStyle($output),
     }
     
     return $output

@@ -1,13 +1,12 @@
 
 /*** The WebGUI Help Desk 
- * Requires: YAHOO, Dom, Event, DataSource, DataTable, Paginator, Dispatcher
+ * Requires: YAHOO, Dom, Event, DataSource, DataTable, Paginator
  *
  */
 
 var DataSource = YAHOO.util.DataSource,
     DataTable  = YAHOO.widget.DataTable,
-    Paginator  = YAHOO.widget.Paginator,
-    Dispatcher = YAHOO.plugin.Dispatcher;
+    Paginator  = YAHOO.widget.Paginator;
 
 if ( typeof WebGUI == "undefined" ) {
     WebGUI  = {};
@@ -46,6 +45,13 @@ WebGUI.HelpDesk = function (configs) {
     //              Protected Static Methods
     ///////////////////////////////////////////////////////////////
     
+    //***********************************************************************************
+    //  This method closes the active tab
+    //
+    WebGUI.HelpDesk.closeTab = function ( ) {
+        WebGUI.helpDeskTabs.removeTab(tabView.get('activeTab'));
+    };
+
     //***********************************************************************************
     // Custom function to handle pagination requests
     WebGUI.HelpDesk.handlePagination = function (state,dt) {
@@ -131,19 +137,34 @@ WebGUI.HelpDesk = function (configs) {
             var oRecord = this.getRecord(elCell);
             
             var url     = oRecord.getData('url') + "?func=view;caller=ticketMgr;view=" + obj._configs.view;
+	       if( typeof(WebGUI.TicketTabs) == "undefined" ) {
+		    WebGUI.TicketTabs = [ ];
+	       }
             if(url) {
                 // Create callback object for the request
                 var oCallback = {
                     success: function(o) {
-                        //ensure no memory leaks  
-                        var destroyer = Dispatcher.destroyer;
-                        if(destroyer != null) {
-                            destroyer.subscribe (function(el, config){
-                                obj.helpdesk.destroy();
-                            });
-                        }
-                        Dispatcher.process( obj._configs.container, o.responseText );
-                    },
+                           var response = eval('(' + o.responseText + ')');
+			   var myTab;
+			   if(response.hasError){
+			       var message = "";
+			       for(var i = 0; i < response.errors.length; i++) {
+				   message += response.errors[i];
+			       }
+			       alert(message);
+			   } else if( typeof(WebGUI.TicketTabs[response.ticketId]) == "undefined" ) {
+			       myTab = new YAHOO.widget.Tab({
+				     label: response.ticketId,
+				     content: response.ticketText
+				 });
+			       WebGUI.helpDeskTabs.addTab( myTab );
+			       WebGUI.TicketTabs[response.ticketId] = myTab;
+                           } else {
+			       myTab = WebGUI.TicketTabs[response.ticketId];
+			       myTab.set('content', response.ticketText);
+			   }
+                           WebGUI.helpDeskTabs.set('activeTab',myTab);
+                       },
                     failure: function(o) {}
                 };
                 var request = YAHOO.util.Connect.asyncRequest('GET', url, oCallback); 
@@ -153,6 +174,23 @@ WebGUI.HelpDesk = function (configs) {
             alert("Could not get table cell for " + target);
         }
     };
+
+    ///////////////////////////////////////////////////////////////
+    //              Internationalization
+    ///////////////////////////////////////////////////////////////
+    this.i18n = new WebGUI.i18n( {
+        namespaces : {
+            'Asset_HelpDesk' : [
+                'confirm and close'
+            ]
+        },
+//        onpreload : {
+//            fn       : this.initialize,
+//            obj      : this,
+//            override : true,
+//        }
+    } );
+
 
     ///////////////////////////////////////////////////////////////
     //              Public Instance Methods
@@ -221,12 +259,6 @@ WebGUI.HelpDesk = function (configs) {
         //Work around nested scoping for the callback
         var myHelpdesk = this.helpdesk;
         //ensure no memory leaks with the datatable
-        var destroyer = Dispatcher.destroyer;
-        if(destroyer != null) {
-            destroyer.subscribe (function(el, config){
-                myHelpdesk.destroy();
-            });
-        }   
     };
 
 };

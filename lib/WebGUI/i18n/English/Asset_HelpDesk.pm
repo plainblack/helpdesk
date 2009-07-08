@@ -163,6 +163,31 @@ You simply replace key1|value1 with your own name/value pairs.},
 		lastUpdated => 0,
 		context => q|Title of Help Desk Mail workflow activity|
 	},
+    'close tab' => {
+		message => q|Close Tab|,
+		lastUpdated => 0,
+		context => q|label for link to close ticket tab in help desk main view|
+	},
+    'view all tickets' => {
+		message => q|View All Tickets|,
+		lastUpdated => 0,
+		context => q|Title for link to 'view all tickets' page.|
+	},
+    'confirm and close' => {
+		message => q|Confirm and Close|,
+		lastUpdated => 0,
+		context => q|Label for 'confirm mand close' button.|
+	},
+    'post' => {
+		message => q|Post|,
+		lastUpdated => 0,
+		context => q|Label for comment post buttin.|
+	},
+#    'TODO' => {
+#		message => q|TODO|,
+#		lastUpdated => 0,
+#		context => q|TODO|
+#	},
 };
 
 1;
