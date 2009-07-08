@@ -9,48 +9,54 @@ our $I18N = {
     },
 
     'subscribe_link' => {
-        message => q{subscribe},
+        message => q{Subscribe},
         lastUpdated => 1122316558,
+        context => q|Label for the subscribe link on the ticket page.|,
     },
     'unsubscribe_link' => {
-        message => q{unsubscribe},
+        message => q{Unsubscribe},
         lastUpdated => 1122316558,
+        context => q|Label for the unsubscribe link on the ticket page.|,
     },
     'new_ticket_message' => {
         message => q{A new ticket has been added to one of your subscriptions.},
         lastUpdated => 1122316558,
+        context => q|text to tell user that a new ticket has been added to a subscription|,
     },
     'update_ticket_message' => {
         message => q{One of the tickets you are subscribed to has been updated.},
         lastUpdated => 1122316558,
+        context => q|Text to notify user that a ticket has been updated.|,
     },
     'notification_assignment_subject' => {
         message => q{Ticket Assignment Notification},
         lastUpdated => 1122316558,
+        context => q|TODO|,
     },
     'notification_assignment_message' => {
         message => q{You have been assigned to handle the ticket entitled<br /><br /> <a href="%s">%s</a>.<br /><br />Please look into this as soon as you are able},
         lastUpdated => 1122316558,
+        context => q|text to notify user that they have been assigned a ticket, first param is ticket URL second is ticket title.|,
     },
     'notification_unassignment_message' => {
         message => q{You are no longer assigned to the ticket entitled<br /><br /> <a href="%s">%s</a>},
         lastUpdated => 1122316558,    
+        context => q|Text to notify user that the given ticket is no longer assigned to them, first param is URL second is ticket title.|,
     },
     'notification_owner_assignment_message' => {
         message => q{The ticket you submitted entitled <a href="%s">%s</a> has been assigned to %s},
         lastUpdated => 1122316558,
-    },
-    'notification_owner_assignment_message' => {
-        message => q{The ticket you submitted entitled <a href="%s">%s</a> has been assigned to %s},
-        lastUpdated => 1122316558,
+        context => q|Text to notify user that the ticket they subitted as been assigned, 3 parameters are: ticket URL, title, and assigned username|,
     },
     'notification_new_file_message' => {
         message => q{A new file has been uploaded to this ticket},
         lastUpdated => 1122316558,
+        context => q|Notify user that a new file has ben attached to their ticket.|,
     },
     'notification_status_message' => {
         message => q{This ticket now has a status of %s with the following comment},
         lastUpdated => 1122316558,
+        context => q|Notify user od new status assigned to their ticket, parameter is status name|,
     },
 };
 
