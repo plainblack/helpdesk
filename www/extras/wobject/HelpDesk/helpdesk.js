@@ -48,8 +48,16 @@ WebGUI.HelpDesk = function (configs) {
     //***********************************************************************************
     //  This method closes the active tab
     //
-    WebGUI.HelpDesk.closeTab = function ( ) {
-        WebGUI.helpDeskTabs.removeTab(tabView.get('activeTab'));
+    WebGUI.HelpDesk.closeTab = function ( e, myTab ) {
+        if( typeof(e) != "undefined" ) {
+            YAHOO.util.Event.preventDefault(e);
+        }
+        if( typeof(myTab) == "undefined" ) {
+            myTab = tabView.get('activeTab');
+	}
+        var index = parseInt( myTab.get('label') );
+        WebGUI.TicketTabs[index] = null;
+        WebGUI.helpDeskTabs.removeTab(myTab);
     };
 
     //***********************************************************************************
@@ -152,12 +160,14 @@ WebGUI.HelpDesk = function (configs) {
 				   message += response.errors[i];
 			       }
 			       alert(message);
-			   } else if( typeof(WebGUI.TicketTabs[response.ticketId]) == "undefined" ) {
+			   } else if( typeof(WebGUI.TicketTabs[response.ticketId]) == "undefined" 
+                                      || WebGUI.TicketTabs[response.ticketId] == null ) {
 			       myTab = new YAHOO.widget.Tab({
-				     label: response.ticketId,
+				     label: response.ticketId + '<span class="close">X</span>',
 				     content: response.ticketText
 				 });
 			       WebGUI.helpDeskTabs.addTab( myTab );
+                               YAHOO.util.Event.on(myTab.getElementsByClassName('close')[0], 'click', WebGUI.HelpDesk.closeTab , myTab);
 			       WebGUI.TicketTabs[response.ticketId] = myTab;
                            } else {
 			       myTab = WebGUI.TicketTabs[response.ticketId];

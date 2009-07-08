@@ -183,6 +183,16 @@ You simply replace key1|value1 with your own name/value pairs.},
 		lastUpdated => 0,
 		context => q|Label for comment post buttin.|
 	},
+    'comments' => {
+		message => q|Comments|,
+		lastUpdated => 0,
+		context => q|Label for the comments field in the edit ticket form.|
+	},
+    'solution summary' => {
+		message => q|Solution Summary|,
+		lastUpdated => 0,
+		context => q|Label for the summary field in the edit ticket form.|
+	},
 #    'TODO' => {
 #		message => q|TODO|,
 #		lastUpdated => 0,
