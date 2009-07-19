@@ -1,6 +1,6 @@
 
 /*** The WebGUI Help Desk 
- * Requires: YAHOO, Dom, Event, DataSource, DataTable, Paginator
+ * Requires: YAHOO, Dom, Event, DataSource, DataTable, Paginator, Container
  *
  */
 
@@ -48,15 +48,25 @@ WebGUI.HelpDesk = function (configs) {
     //***********************************************************************************
     //  This method closes the active tab
     //
+    //   Parameters:   ( integer ) -- if a ticket id is passed in then remove the tab for that ticket
+    //                 ( e, object ) -- cancel the event and close the tab associated with the object
+    //                 ( ) -- get the current tab from the tabview object and close it
+    //
     WebGUI.HelpDesk.closeTab = function ( e, myTab ) {
-        if( typeof(e) != "undefined" ) {
-            YAHOO.util.Event.preventDefault(e);
+        var index;
+        if( typeof(e) == "string" || typeof(e) == "number" ) {
+            index = e;
+            myTab = WebGUI.Tickets[index].Tab;
+        } else {
+            if( typeof(e) != "undefined" ) {
+                YAHOO.util.Event.preventDefault(e);
+            }
+            if( typeof(myTab) == "undefined" ) {
+                myTab = tabView.get('activeTab');
+	    }
+            index = parseInt( myTab.get('label') );
         }
-        if( typeof(myTab) == "undefined" ) {
-            myTab = tabView.get('activeTab');
-	}
-        var index = parseInt( myTab.get('label') );
-        WebGUI.TicketTabs[index] = null;
+        delete WebGUI.Tickets[index];
         WebGUI.helpDeskTabs.removeTab(myTab);
     };
 
@@ -135,6 +145,15 @@ WebGUI.HelpDesk = function (configs) {
         
         //let the default action happen if the user clicks the last reply column
         var links = YAHOO.util.Dom.getElementsByClassName ("profile_link","a",target);
+
+        //  the 'loading' 'throbber'
+        var ticketLoadingThrobber = new YAHOO.widget.Overlay( "ticketLoadingThrobber", {  
+            width               : "16px",
+            height              : "16px",
+            fixedcenter         : true,
+            visible             : true
+       } );
+        ticketLoadingThrobber.render();
         
         if (links.length == 0) {
             YAHOO.util.Event.stopEvent(evt.event);
@@ -145,8 +164,8 @@ WebGUI.HelpDesk = function (configs) {
             var oRecord = this.getRecord(elCell);
             
             var url     = oRecord.getData('url') + "?func=view;caller=ticketMgr;view=" + obj._configs.view;
-	       if( typeof(WebGUI.TicketTabs) == "undefined" ) {
-		    WebGUI.TicketTabs = [ ];
+	       if( typeof(WebGUI.Tickets) == "undefined" ) {
+		    WebGUI.Tickets = new Object();
 	       }
             if(url) {
                 // Create callback object for the request
@@ -160,22 +179,38 @@ WebGUI.HelpDesk = function (configs) {
 				   message += response.errors[i];
 			       }
 			       alert(message);
-			   } else if( typeof(WebGUI.TicketTabs[response.ticketId]) == "undefined" 
-                                      || WebGUI.TicketTabs[response.ticketId] == null ) {
+                               return;
+			   } else if( typeof(WebGUI.Tickets[response.ticketId]) == "undefined" 
+                                      || WebGUI.Tickets[response.ticketId] == null ) {
+                               // if there is a tab .. close it,
+                               // at least until I can get the JS/HTML re-written to handle multiple tabs
+                               //  there should only be one
+                               for( var ticketId in WebGUI.Tickets ) { WebGUI.HelpDesk.closeTab(ticketId) }
+			       var myContent = document.createElement("div");
+                               myContent.innerHTML = response.ticketText;
 			       myTab = new YAHOO.widget.Tab({
 				     label: response.ticketId + '<span class="close">X</span>',
-				     content: response.ticketText
+				     contentEl: myContent
 				 });
 			       WebGUI.helpDeskTabs.addTab( myTab );
                                YAHOO.util.Event.on(myTab.getElementsByClassName('close')[0], 'click', WebGUI.HelpDesk.closeTab , myTab);
-			       WebGUI.TicketTabs[response.ticketId] = myTab;
+			       WebGUI.Tickets[response.ticketId] = new Object();
+			       WebGUI.Tickets[response.ticketId].Tab = myTab;
                            } else {
-			       myTab = WebGUI.TicketTabs[response.ticketId];
+			       myTab = WebGUI.Tickets[response.ticketId].Tab;
 			       myTab.set('content', response.ticketText);
 			   }
+			   // make sure the script on the ticket has run
+			   if( typeof( WebGUI.ticketJScriptRun ) == "undefined" ) {
+			       eval( document.getElementById("ticketJScript").innerHTML );
+			   }
+			   delete WebGUI.ticketJScriptRun;
+                           ticketLoadingThrobber.destroy();
                            WebGUI.helpDeskTabs.set('activeTab',myTab);
                        },
-                    failure: function(o) {}
+                    failure: function(o) {
+                           ticketLoadingThrobber.destroy();
+                       }
                 };
                 var request = YAHOO.util.Connect.asyncRequest('GET', url, oCallback); 
             }
@@ -191,7 +226,8 @@ WebGUI.HelpDesk = function (configs) {
     this.i18n = new WebGUI.i18n( {
         namespaces : {
             'Asset_HelpDesk' : [
-                'confirm and close'
+                'confirm and close',
+                'reopen ticket'
             ]
         },
 //        onpreload : {

@@ -193,6 +193,11 @@ You simply replace key1|value1 with your own name/value pairs.},
 		lastUpdated => 0,
 		context => q|Label for the summary field in the edit ticket form.|
 	},
+    'reopen ticket' => {
+		message => q|Reopen Ticket|,
+		lastUpdated => 0,
+		context => q|Label for button that reopens a ticket|
+	},
 #    'TODO' => {
 #		message => q|TODO|,
 #		lastUpdated => 0,

@@ -1279,6 +1279,7 @@ sub www_viewAllTickets {
     $var->{'sortColumn'   } = $sortColumn;
     $var->{'sortOrder'    } = $self->get("sortOrder");
 
+    $session->http->setMimeType( 'text/html' );
     return $self->processTemplate($var, $self->getValue("viewAllTemplateId"));
 }
 

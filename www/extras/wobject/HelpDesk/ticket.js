@@ -34,7 +34,11 @@ WebGUI.Ticket.findUsers = function(o) {
             YAHOO.util.Dom.setStyle('userSearchIndicator','display','none');
             var userList = YAHOO.util.Dom.get('userList');
             // YAHOO.plugin.Dispatcher.process( "userList", o.responseText );
-            userList.innerHtml = o.responseText;
+            userList.innerHTML = o.responseText;
+            var linkList = YAHOO.util.Dom.getElementsByClassName("userListLink",'a','userList_div');
+            for(var i = 0; i < linkList.length; i++) {
+                YAHOO.util.Event.addListener(linkList[i],'click',WebGUI.Ticket.setAssignment,{ url:'/home/the-help-desk/1?func=setAssignment' });
+            }
         },
         failure: function(o) {}
     };            
@@ -48,7 +52,7 @@ WebGUI.Ticket.loadDataTable = function( oArgs ) {
     var oCallback = {
         success: function(o) {
             // YAHOO.plugin.Dispatcher.process( WebGUI.Ticket.dataTableId, o.responseText );
-            YAHOO.util.Dom.get( WebGUI.Ticket.dataTableId ).innerHtml = o.responseText ;
+            YAHOO.util.Dom.get( WebGUI.Ticket.dataTableId ).innerHTML = o.responseText ;
         },
         failure: function(o) {}
     };
@@ -66,7 +70,7 @@ WebGUI.Ticket.loadField = function(o, obj) {
         success: function(o) {
             //Use the dispatcher to insert the form and run any javascript included
             // YAHOO.plugin.Dispatcher.process("field_id_"+fieldId, o.responseText );
-            YAHOO.util.Dom.get( "field_id_"+fieldId ).innerHtml = o.responseText ;
+            YAHOO.util.Dom.get( "field_id_"+fieldId ).innerHTML = o.responseText ;
             //Remove the current listener from the link
             var href             = YAHOO.util.Dom.getAncestorByTagName(button,"A");            
             YAHOO.util.Event.removeListener(href,'click',WebGUI.Ticket.loadField);
@@ -100,6 +104,9 @@ WebGUI.Ticket.loadField = function(o, obj) {
 WebGUI.Ticket.postComment = function (evt, obj) {
     YAHOO.util.Dom.get("commentsBtn").disabled = true;
     YAHOO.util.Dom.get("commentsBtn").value = "Submitting";
+    if(obj.closeBtn) {
+         obj.closeBtn.disabled = true;
+    }
     var url        = WebGUI.Ticket.postCommentUrl;
     var oCallback = {
         success: function(o) {
@@ -158,7 +165,7 @@ WebGUI.Ticket.postComment = function (evt, obj) {
                         //change the button text if the status is now resolved
                         var commentsBtn = YAHOO.util.Dom.get("commentsBtn");
                         if(ticketStatus == "resolved") {
-                            commentsBtn.value="Reopen Ticket";
+                            commentsBtn.setAttribute("value",WebGUI.HelpDesk.i18n.get("Asset_HelpDesk","reopen ticket"));
                             if(WebGUI.Ticket.isOwner) {
                                 var commentsButtonDiv = YAHOO.util.Dom.get("commentsButton_div");
                                 //Add the close button if ticket is resolved and the user is the ticket owner and the closed button isn't already there
@@ -169,7 +176,7 @@ WebGUI.Ticket.postComment = function (evt, obj) {
                                     closeButton.setAttribute("value",WebGUI.HelpDesk.i18n.get("Asset_HelpDesk","confirm and close"));
                                     closeButton.setAttribute("name","closeBtn");
                                     closeButton.id ="closeBtn";
-                                    YAHOO.util.Event.addListener(closeButton,"click", WebGUI.Ticket.postComment, { form : "commentsForm", close : true });
+                                    YAHOO.util.Event.addListener(closeButton,"click", WebGUI.Ticket.postComment, { form : "commentsForm", close : true, closeBtn : closeButton });
                                     commentsButtonDiv.appendChild(closeButton);
                                 }
                                 //Add the close ticket hidden field if it doesn't exist already
@@ -349,6 +356,7 @@ WebGUI.Ticket.setAssignment = function ( o, obj ) {
     var id         = target.id;
     var parts      = id.split("~");
     
+    window.assignDialog.hide();
     var assignedTo = "unassigned";
     if(parts.length > 1) {
         assignedTo  = parts[1];
@@ -366,7 +374,6 @@ WebGUI.Ticket.setAssignment = function ( o, obj ) {
                 YAHOO.util.Dom.get("dateAssigned").innerHTML = response.dateAssigned;
                 YAHOO.util.Dom.get("assignedBy").innerHTML   = response.assignedBy;
                 WebGUI.Ticket.rebuildHistory();
-                window.assignDialog.hide();
             }
         }
     };

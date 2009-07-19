@@ -1660,7 +1660,9 @@ sub view {
             ticketText => $output,
             ticketId => $self->get('ticketId'),
         });
+        $session->http->setMimeType( 'text/html' );
     } else {
+        $session->http->setMimeType( 'text/html' );
        $output = $parent->processStyle($output),
     }
     
@@ -1867,6 +1869,7 @@ sub www_fileList {
 
     my $var       = shift || $self->getRelatedFilesVars($self->get('storageId'),$parent->canPost);
 
+    $session->http->setMimeType( 'text/html' );
     return $self->processTemplate(
         $var,
         $parent->get("viewTicketRelatedFilesTemplateId")
@@ -1903,6 +1906,7 @@ sub www_getComments {
         $comment->{'comment'           } = $comment->{comment};
     }
     
+    $session->http->setMimeType( 'text/html' );
     return $self->processTemplate(
         $var,
         $parent->get("viewTicketCommentsTemplateId")
@@ -1974,6 +1978,7 @@ sub www_getFormField {
     my $headtags = $session->style->generateAdditionalHeadTags;
     #Return the output
     my $output = qq{<form id="form_$fieldId">$headtags $htmlElement<input type="hidden" name="fieldId" value="$fieldId"></form>};
+    $session->http->setMimeType( 'text/html' );
     return $output;
 }
 
@@ -1994,6 +1999,7 @@ sub www_getHistory {
     #Get the comments
     $var->{'history_loop'} = $self->getHistory;
     
+    $self->session->http->setMimeType( 'text/html' );
     return $self->processTemplate(
         $var,
         $self->getParent->get("viewTicketHistoryTemplateId")
@@ -2059,6 +2065,7 @@ sub www_postComment {
     my $avgRating    = $self->get("averageRating");
 
     #Return JSON to the page
+    $session->http->setMimeType( 'text/JSON' );
     return JSON->new->encode({
         averageRating      => sprintf("%.1f", $avgRating),
         averageRatingImage => $self->getAverageRatingImage($avgRating),
@@ -2098,6 +2105,7 @@ sub www_postKeywords {
         asArrayRef =>1
     });
 
+    $session->http->setMimeType( 'text/JSON' );
     return JSON->new->encode( { keywords=>$keywords } );
 }
 
@@ -2163,6 +2171,7 @@ sub www_saveFormField {
         push(@errors,'ERROR: '.$field->{label}.' cannot be empty.  Please enter a value');
     }
 
+    $session->http->setMimeType( 'text/JSON' );
     return $self->processErrors(\@errors) if(scalar(@errors));
 
     #Update the database
@@ -2274,6 +2283,7 @@ sub www_setAssignment {
     });
 
     #Return the data
+    $session->http->setMimeType( 'text/JSON' );
     return JSON->new->encode({
         assignedTo   => $username,
         dateAssigned => $session->datetime->epochToSet($dateAssigned),
@@ -2321,6 +2331,7 @@ sub www_toggleSubscription {
     }
 
     if(scalar(@errors)) {    
+        $session->http->setMimeType( 'text/JSON' );
         return JSON->new->encode({
             hasError =>"true",
             errors   =>\@errors
@@ -2341,6 +2352,7 @@ sub www_toggleSubscription {
         $returnStr = $i18n->get("unsubscribe_link");
     }
 
+    $session->http->setMimeType( 'text/JSON' );
     return "{ message : '$returnStr' }";
 }
 
@@ -2375,6 +2387,7 @@ sub www_transferKarma {
     
     $self->transferKarma($karma);
     
+    $session->http->setMimeType( 'text/JSON' );
     #Get the current values from the object to return
     return JSON->new->encode({
         karma     => $self->get("karma"),
@@ -2437,6 +2450,7 @@ sub www_uploadFile {
     my $i18n      = $self->i18n;
     
     unless ($self->getParent->canPost) {
+    $session->http->setMimeType( 'text/JSON' );
         return "{
             hasError: true,
             errors: ['You do not have permission to post files to this ticket']
@@ -2452,7 +2466,8 @@ sub www_uploadFile {
     #Notify subscribers
     $self->notifySubscribers({ content=>$i18n->get("notification_new_file_message") });
     
-    return "{}";
+    #$session->http->setMimeType( 'text/JSON' );
+    return " { x : 1 } ";
 }
 
 #----------------------------------------------------------------------------
@@ -2514,6 +2529,7 @@ sub www_userSearch {
         $var->{'users_loop'       } = \@userList;
     }
 
+    $session->http->setMimeType( 'text/html' );
     return $self->processTemplate(
         $var,
         $parent->get("viewTicketUserListTemplateId")
