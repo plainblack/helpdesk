@@ -56,7 +56,7 @@ WebGUI.HelpDesk = function (configs) {
         var index;
         if( typeof(e) == "string" || typeof(e) == "number" ) {
             index = e;
-            myTab = WebGUI.Tickets[index].Tab;
+            myTab = WebGUI.HelpDesk.Tickets[index].Tab;
         } else {
             if( typeof(e) != "undefined" ) {
                 YAHOO.util.Event.preventDefault(e);
@@ -66,7 +66,7 @@ WebGUI.HelpDesk = function (configs) {
 	    }
             index = parseInt( myTab.get('label') );
         }
-        delete WebGUI.Tickets[index];
+        delete WebGUI.HelpDesk.Tickets[index];
         WebGUI.helpDeskTabs.removeTab(myTab);
     };
 
@@ -142,18 +142,25 @@ WebGUI.HelpDesk = function (configs) {
     //
     WebGUI.HelpDesk.loadTicket = function ( evt, obj ) {
         var target = evt.target;
+	if( typeof(WebGUI.HelpDesk.Tickets) == "undefined" ) {
+	    WebGUI.HelpDesk.Tickets = new Object();
+	}
         
         //let the default action happen if the user clicks the last reply column
         var links = YAHOO.util.Dom.getElementsByClassName ("profile_link","a",target);
 
-        //  the 'loading' 'throbber'
-        var ticketLoadingThrobber = new YAHOO.widget.Overlay( "ticketLoadingThrobber", {  
-            width               : "16px",
-            height              : "16px",
-            fixedcenter         : true,
-            visible             : true
-       } );
-        ticketLoadingThrobber.render();
+        //  the 'loading' 'indicator'
+        if( typeof(WebGUI.HelpDesk.ticketLoadingIndicator) == "undefined" ) {
+            WebGUI.HelpDesk.ticketLoadingIndicator = new YAHOO.widget.Overlay( "ticketLoadingIndicator", {  
+                fixedcenter         : true,
+                visible             : false
+           } );
+            WebGUI.HelpDesk.ticketLoadingIndicator.setBody( "Loading Ticket ..." +
+		"<img id='ticketLoadingIndicator' title='loading' src='/extras/wobject/HelpDesk/indicator.gif'/>"
+		);
+	    WebGUI.HelpDesk.ticketLoadingIndicator.render(document.body);
+        }
+        WebGUI.HelpDesk.ticketLoadingIndicator.show();
         
         if (links.length == 0) {
             YAHOO.util.Event.stopEvent(evt.event);
@@ -163,15 +170,16 @@ WebGUI.HelpDesk = function (configs) {
         if(elCell) {
             var oRecord = this.getRecord(elCell);
             
-            var url     = oRecord.getData('url') + "?func=view;caller=ticketMgr;view=" + obj._configs.view;
-	       if( typeof(WebGUI.Tickets) == "undefined" ) {
-		    WebGUI.Tickets = new Object();
-	       }
-            if(url) {
-                // Create callback object for the request
-                var oCallback = {
-                    success: function(o) {
-                           var response = eval('(' + o.responseText + ')');
+            if( typeof( WebGUI.HelpDesk.Tickets[oRecord.ticketId] ) != "undefined" ) {
+	        WebGUI.helpDeskTabs.set('activeTab',WebGUI.HelpDesk.Tickets[oRecord.ticketId].Tab);
+	        WebGUI.HelpDesk.ticketLoadingIndicator.hide();
+	    }  else {
+		var url     = oRecord.getData('url') + "?func=view;caller=ticketMgr;view=" + obj._configs.view;
+	     
+		// Create callback object for the request
+		var oCallback = {
+		    success: function(o) {
+			   var response = eval('(' + o.responseText + ')');
 			   var myTab;
 			   if(response.hasError){
 			       var message = "";
@@ -179,25 +187,25 @@ WebGUI.HelpDesk = function (configs) {
 				   message += response.errors[i];
 			       }
 			       alert(message);
-                               return;
-			   } else if( typeof(WebGUI.Tickets[response.ticketId]) == "undefined" 
-                                      || WebGUI.Tickets[response.ticketId] == null ) {
-                               // if there is a tab .. close it,
-                               // at least until I can get the JS/HTML re-written to handle multiple tabs
-                               //  there should only be one
-                               for( var ticketId in WebGUI.Tickets ) { WebGUI.HelpDesk.closeTab(ticketId) }
+			       return;
+			   } else if( typeof(WebGUI.HelpDesk.Tickets[response.ticketId]) == "undefined" 
+				      || WebGUI.HelpDesk.Tickets[response.ticketId] == null ) {
+			       // if there is a tab .. close it,
+			       // at least until I can get the JS/HTML re-written to handle multiple tabs
+			       //  there should only be one
+			       for( var ticketId in WebGUI.HelpDesk.Tickets ) { WebGUI.HelpDesk.closeTab(ticketId) }
 			       var myContent = document.createElement("div");
-                               myContent.innerHTML = response.ticketText;
+			       myContent.innerHTML = response.ticketText;
 			       myTab = new YAHOO.widget.Tab({
 				     label: response.ticketId + '<span class="close">X</span>',
 				     contentEl: myContent
 				 });
 			       WebGUI.helpDeskTabs.addTab( myTab );
-                               YAHOO.util.Event.on(myTab.getElementsByClassName('close')[0], 'click', WebGUI.HelpDesk.closeTab , myTab);
-			       WebGUI.Tickets[response.ticketId] = new Object();
-			       WebGUI.Tickets[response.ticketId].Tab = myTab;
-                           } else {
-			       myTab = WebGUI.Tickets[response.ticketId].Tab;
+			       YAHOO.util.Event.on(myTab.getElementsByClassName('close')[0], 'click', WebGUI.HelpDesk.closeTab , myTab);
+			       WebGUI.HelpDesk.Tickets[response.ticketId] = new Object();
+			       WebGUI.HelpDesk.Tickets[response.ticketId].Tab = myTab;
+			   } else {
+			       myTab = WebGUI.HelpDesk.Tickets[response.ticketId].Tab;
 			       myTab.set('content', response.ticketText);
 			   }
 			   // make sure the script on the ticket has run
@@ -205,17 +213,16 @@ WebGUI.HelpDesk = function (configs) {
 			       eval( document.getElementById("ticketJScript").innerHTML );
 			   }
 			   delete WebGUI.ticketJScriptRun;
-                           ticketLoadingThrobber.destroy();
-                           WebGUI.helpDeskTabs.set('activeTab',myTab);
-                       },
-                    failure: function(o) {
-                           ticketLoadingThrobber.destroy();
-                       }
-                };
-                var request = YAHOO.util.Connect.asyncRequest('GET', url, oCallback); 
-            }
-        }
-        else {
+			   WebGUI.HelpDesk.ticketLoadingIndicator.hide();
+			   WebGUI.helpDeskTabs.set('activeTab',myTab);
+		       },
+		    failure: function(o) {
+			   WebGUI.HelpDesk.ticketLoadingIndicator.hide();
+		       }
+		};
+		var request = YAHOO.util.Connect.asyncRequest('GET', url, oCallback); 
+	    }
+        } else {
             alert("Could not get table cell for " + target);
         }
     };
