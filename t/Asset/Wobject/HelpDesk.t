@@ -32,10 +32,10 @@ WebGUI::Test->tagsToRollback($versionTag);
 #----------------------------------------------------------------------------
 # Tests
 
-plan tests => 4;        # Increment this number for each test you create
+plan tests => 8;        # Increment this number for each test you create
 
 #----------------------------------------------------------------------------
-# put your tests here
+# put your tests here   ( 4 tests )
 
 use_ok("WebGUI::Asset::Wobject::HelpDesk");
 use_ok("WebGUI::Asset::Ticket");
@@ -51,6 +51,29 @@ my $ticket = $helpdesk->addChild({
     title => 'a test ticket',
 });
 isa_ok($ticket,'WebGUI::Asset::Ticket');
+
+#----------------------------------------------------------------------------
+# test meta fields   ( 3 tests )
+
+my $mf = $helpdesk->getHelpDeskMetaFields({returnHashRef => 1});
+isa_ok( $mf, 'HASH', "getHelpDeskMetaFields returns a HASH ref");
+is( scalar(keys %$mf), 0, "getHelpDeskMetaFields returns correct number of keys");
+
+TODO: {
+        local $TODO = "need to perform login for this test";
+
+$session->form->setup_body({
+    fieldId => 'new',
+    dataType => 'Date',
+    label => 'test metafield',
+});
+my $return_text = $helpdesk->www_editHelpDeskMetaFieldSave();
+#print $return_text;
+unlike( $return_text, '/error/i', "return from meta field save has no errors");
+$mf = $helpdesk->getHelpDeskMetaFields({returnHashRef => 1});
+is( scalar(keys %$mf), 1, "successfully added a new meta field");
+
+}
 
 #----------------------------------------------------------------------------
 # Cleanup
