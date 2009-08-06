@@ -859,7 +859,19 @@ sub postComment {
     return 0 if ($comment eq "");
 
     my $comments  = $self->get('comments');    
-    my $commentId = $session->id->generate;
+    my $commentId;
+    if(  $options->{commentId} ne 'new' ) {
+        $commentId = $options->{commentId};
+        for my $item ( @$comments ) {
+	    if( $item->{id} eq $commentId ) {
+	        $item->{comment} = $comment;
+	        $item->{rating} = $rating;
+	        $item->{data} = $now;
+	        $item->{ip} = $session->var->get('lastIP');
+	    }
+        }
+    } else {
+        $commentId = $session->id->generate;
 	push @$comments, {
 		id          => $commentId,
         alias		=> $user->profileField('alias'),
@@ -869,6 +881,7 @@ sub postComment {
 		date		=> $now,
 		ip			=> $session->var->get('lastIP'),
 	};
+    }
 
     #Recalculate the rating
     my $count = 0;
@@ -1516,6 +1529,7 @@ sub view {
     $var->{'url_postSolution' } = $self->getUrl('func=postSolution');
     $var->{'url_postComment'  } = $self->getUrl('func=postComment');
     $var->{'url_getComment'   } = $self->getUrl('func=getComments');
+    $var->{'url_editComment'  } = $self->getUrl('func=editComment;commentId=');
     $var->{'url_setAssignment'} = $self->getUrl("func=setAssignment");
     $var->{'url_postKeywords' } = $self->getUrl("func=postKeywords");
     $var->{'url_getFormField' } = $self->getUrl("func=getFormField");
@@ -1903,7 +1917,10 @@ sub www_getComments {
         $comment->{'time_formatted'    } = $time;
         $comment->{'datetime_formatted'} = $date." ".$time;
         $comment->{'rating_image'      } = $session->url->extras('wobject/HelpDesk/rating/'.$rating.'.png');
-        $comment->{'comment'           } = $comment->{comment};
+        $comment->{'canEdit'           } = $comment->{userId} eq $session->user->userId;
+        $comment->{'commentId'         } = $comment->{id};
+	# TODO thes are silly, self-assignemnt, remove them...
+        #$comment->{'comment'           } = $comment->{comment};
     }
     
     $session->http->setMimeType( 'text/html' );
@@ -1955,7 +1972,35 @@ sub www_getFormField {
             extras  => q{class="dyn_form_field"}
         })
     }
-    else {
+    elsif($fieldId =~ /comment_/ ) {
+        return $session->privilege->insufficient  unless $self->canPost;
+        my $commentText = '';
+        my $commentRating = 0;
+        my $comments  = $self->get('comments');    
+        my $commentId = $fieldId;
+        $commentId =~ s/comment_//;
+        for my $item ( @$comments ) {
+	    if( $item->{id} eq $commentId ) {
+	        $commentText = $item->{comment};
+	        $commentRating = $item->{rating};
+                last;
+	    }
+        }
+        $htmlElement = WebGUI::Form::textarea($session,{
+            name      => "comment",
+            value     => $commentText,
+            rows      => "4",     # TODO change these to match ...
+            cols      => "20",
+            extras  => q{class="dyn_form_field"}
+        });
+        $htmlElement .= WebGUI::Form::commentRating($session,{
+            name      => "rating",
+            value     => $commentRating,
+	    imagePath      =>$ratingUrl,
+	    imageExtension =>"png",
+            extras  => q{class="dyn_form_field"}
+       });
+    } else {
         #Only users who have update privileges should be able to change the metadata fields
         return $session->privilege->insufficient  unless $self->canUpdate;
         return "" unless $fieldId;
@@ -2020,6 +2065,7 @@ sub www_postComment {
     my $form      = $session->form;
     my $comment   = shift || $form->process("comment","textarea");
     my $user      = shift || $session->user;
+    my $commentId = shift || $form->process("commentId") || 'new';
     return  $session->privilege->insufficient unless $user->isRegistered;
     my $i18n      = $self->i18n;
     my @errors    = ();
@@ -2057,6 +2103,7 @@ sub www_postComment {
         solution     => $solution,
         status       => $status,
         closeTicket  => ($form->get("close") eq "closed"),
+        commentId    => $commentId,
     });
 
     #Set the proper status to return
@@ -2157,6 +2204,21 @@ sub www_saveFormField {
         my $karmaScale = $self->get("karmaScale");
         my $karmaRank  = sprintf("%.2f",$self->get("karmaRank"));
         return "{ value: '$karmaScale', username:'$username', karmaRank:'$karmaRank'}";
+    }
+    elsif($fieldId =~ /comment_/ ) {
+        my $commentId = $fieldId;
+        $commentId =~ s/comment_//;
+        my $comment = $session->form->get('comment');
+        my $rating = $session->form->get('rating');
+        my $ratingImage = $self->session->url->extras($ratingUrl.$rating.".png");
+        my $ratingId = 'comment_rating_' . $commentId;
+        $self->postComment($session->form->get('comment'),{
+            rating       => $rating,
+            commentId    => $commentId,
+        });
+        $comment =~ s/\n/<br>/g;
+        return "{ value: '$comment', rating:'$rating'," .
+               " ratingId: '$ratingId', ratingImage:'$ratingImage'}";
     }
 
     #Handle meta field posts

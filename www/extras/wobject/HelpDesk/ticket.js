@@ -13,6 +13,16 @@ if ( typeof WebGUI.Ticket == "undefined" ) {
 }
 
 //***********************************************************************************
+WebGUI.Ticket.editCommentsSetup = function() {
+    var linkList = YAHOO.util.Dom.getElementsByClassName("editCommentButton",'a','comments');
+    for(var i = 0; i < linkList.length; i++) {
+        YAHOO.util.Event.addListener(linkList[i],'click',WebGUI.Ticket.loadField,{
+            fieldId : linkList[i].id
+        });
+    }
+}
+
+//***********************************************************************************
 WebGUI.Ticket.findFirstFormElement = function( node ) {
     var children    = YAHOO.util.Dom.getChildren(node);
     var hasChildren = children.length;
@@ -68,8 +78,6 @@ WebGUI.Ticket.loadField = function(o, obj) {
 
     var oCallback = {
         success: function(o) {
-            //Use the dispatcher to insert the form and run any javascript included
-            // YAHOO.plugin.Dispatcher.process("field_id_"+fieldId, o.responseText );
             YAHOO.util.Dom.get( "field_id_"+fieldId ).innerHTML = o.responseText ;
             //Remove the current listener from the link
             var href             = YAHOO.util.Dom.getAncestorByTagName(button,"A");            
@@ -118,6 +126,8 @@ WebGUI.Ticket.postComment = function (evt, obj) {
                 YAHOO.util.Connect.asyncRequest('GET', WebGUI.Ticket.getCommentsUrl, {
                     success: function (o) {
                         YAHOO.util.Dom.get("comments").innerHTML = o.responseText;
+                        //  re-set the linkage to the edit comment code...
+			WebGUI.Ticket.editCommentsSetup();
                         YAHOO.util.Dom.get("commentsForm").reset();
                         //Set the average rating
                         var averageRatingImg   = YAHOO.util.Dom.get("averageRatingImg");
@@ -304,6 +314,11 @@ WebGUI.Ticket.saveFieldValue = function(o, obj) {
             }
             else {
                 valueField.innerHTML = response.value;
+                if( typeof(response.ratingImage) != "undefined" ) {
+		    var ratingImageElement = document.getElementById(response.ratingId);
+		    ratingImageElement.src = response.ratingImage;
+		    ratingImageElement.title = response.rating;
+                }
                 var href             = YAHOO.util.Dom.getAncestorByTagName(button,"A");
                 YAHOO.util.Event.removeListener(href,'click',WebGUI.Ticket.saveFieldValue);
                 WebGUI.Ticket.removeAllChildren(href);
