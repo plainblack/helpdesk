@@ -22,7 +22,7 @@ CREATE TABLE HelpDesk (
     karmaPerPost INTEGER NOT NULL default 0,
     karmaToClose INTEGER NOT NULL default 0,
     defaultKarmaScale INTEGER NOT NULL default 1,
-    sortColumn ENUM ('ticketId ','title','createdBy','creationDate','assignedTo','ticketStatus','lastReplyDate','karmaRank') DEFAULT 'creationDate',
+    sortColumn ENUM ('ticketId','title','createdBy','creationDate','assignedTo','ticketStatus','lastReplyDate','karmaRank') DEFAULT 'creationDate',
     sortOrder ENUM('ASC','DESC') DEFAULT 'DESC',
     subscriptionGroup VARCHAR(255) NOT NULL,
     mailServer VARCHAR(255) default NULL,
