@@ -599,14 +599,18 @@ sub getStatus {
 
     unless ($self->{_status}) {
         tie my %hash, "Tie::IxHash";
-        %hash = (
-            'pending'      => 'Pending',
-            'acknowledged' => 'Acknowledged',
-            'feedback'     => 'Feedback Requested',
-            'confirmed'    => 'Confirmed',
-            'resolved'     => 'Resolved',
-            'closed'       => 'Closed'
-        );
+        my $i18n = $self->i18n;
+        for my $item ( 
+            'pending',
+            'waiting',
+            'acknowledged',
+            'feedback',
+            'confirmed',
+            'resolved',
+            'closed',
+			) {
+            $hash{$item} = $i18n->get($item),
+        }
         $self->{_status} = \%hash;
     }
 

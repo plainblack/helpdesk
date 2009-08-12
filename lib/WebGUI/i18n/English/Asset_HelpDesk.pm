@@ -198,6 +198,41 @@ You simply replace key1|value1 with your own name/value pairs.},
 		lastUpdated => 0,
 		context => q|Label for button that reopens a ticket|
 	},
+    'pending' => {
+		message => q|Pending|,
+		lastUpdated => 0,
+		context => q|'Pending' status for helpdesk tickets.|
+	},
+    'acknowledged' => {
+		message => q|Acknowledged|,
+		lastUpdated => 0,
+		context => q|'Acknowledged' status for helpdesk tickets.|
+	},
+    'feedback' => {
+		message => q|Feedback Requested|,
+		lastUpdated => 0,
+		context => q|'Feedback Requested' status for helpdesk tickets.|
+	},
+    'confirmed' => {
+		message => q|Confirmed|,
+		lastUpdated => 0,
+		context => q|'Confirmed' status for helpdesk tickets.|
+	},
+    'resolved' => {
+		message => q|Resolved|,
+		lastUpdated => 0,
+		context => q|'Resolved' status for helpdesk tickets.|
+	},
+    'closed' => {
+		message => q|Closed|,
+		lastUpdated => 0,
+		context => q|'Closed' status for helpdesk tickets.|
+	},
+    'waiting' => {
+		message => q|Waiting on External|,
+		lastUpdated => 0,
+		context => q|'Waiting on external dependancy' status for helpdesk tickets.|
+	},
 #    'TODO' => {
 #		message => q|TODO|,
 #		lastUpdated => 0,
