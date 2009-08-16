@@ -602,8 +602,8 @@ sub getStatus {
         my $i18n = $self->i18n;
         for my $item ( 
             'pending',
-            'waiting',
             'acknowledged',
+            'waiting',
             'feedback',
             'confirmed',
             'resolved',
@@ -806,9 +806,9 @@ sub view {
     $var->{'canEditAndPost'} = $var->{'canPost'} && $var->{'canEdit'};
     $var->{'canSubscribe'  } = $self->canSubscribe;
 
-    $var->{'url_viewAll'    } = $self->getUrl("func=viewAllTickets");
-    $var->{'url_viewMy'     } = $self->getUrl("func=viewMyTickets");
-    $var->{'url_search'     } = $self->getUrl("func=search");
+    #$var->{'url_viewAll'    } = $self->getUrl("func=viewAllTickets");
+    #$var->{'url_viewMy'     } = $self->getUrl("func=viewMyTickets");
+    #$var->{'url_search'     } = $self->getUrl("func=search");
     $var->{'url_subscribe'  } = $self->getUrl("func=toggleSubscription");
     $var->{'subscribe_label'} = ($self->isSubscribed) ? $i18n->get("unsubscribe_link") : $i18n->get("subscribe_link");
 
@@ -921,6 +921,13 @@ sub www_editHelpDeskMetaField {
 		defaultValue => 1,
 	});
 
+         # meta field sorting is not yet available,  needs some design work
+    $var->{'form_sortable'    } = WebGUI::Form::yesNo($session, {
+		name         => "sortable",
+		value        => 0, # $form->get("sortable") || $data->{sortable},
+		defaultValue => 0,
+	});
+
     $var->{'form_showInList'    } = WebGUI::Form::yesNo( $session, {
         name            => "showInList",
         value           => $form->get("showInList") || $data->{showInList},
@@ -993,11 +1000,13 @@ sub www_editHelpDeskMetaFieldSave {
 
     my $fieldType       = $form->process("dataType",'fieldType');
     my $searchable      = $form->process("searchable",'yesNo');
+    my $sortable        = 0; # $form->process("sortable",'yesNo');
     my $newId = $self->setCollateral("HelpDesk_metaField", "fieldId",{
         fieldId        => $fieldId,
 		label          => $form->process("label"),
 		dataType       => $fieldType,
 		searchable     => $searchable,
+		sortable       => $sortable,
         showInList      => $form->process("showInList","yesNo"),
 		required       => $form->process("required",'yesNo'),
 		possibleValues => $form->process("possibleValues",'textarea'),
@@ -1153,9 +1162,29 @@ sub www_getAllTickets {
         );
 
         # Add metadata fields we should show in the list
+	my $metadata = $ticket->getTicketMetaData( );
         for my $fieldId (keys %{$metafields}) {   
             my $field   = $metafields->{ $fieldId };
-            $fields{ "metadata_" . $fieldId } = $ticket->getTicketMetaData( $fieldId );
+	    $fields{ "metadata_" . $fieldId } = $metadata->{ $fieldId };
+            # look for list fields that require mapped output
+	    #   ideally this mapping would be done elsewhere, but I am putting it here
+	    #   to avoid breaking anything...
+	    for my $checkType ( qw/CheckList ComboBox HiddenList Date DateTime
+			           RadioList SelectBox SelectList/ ) {
+	        if( $metafields->{$fieldId}{dataType} eq $checkType ) {
+		    # make the object and get the value
+		    my $props = {
+			name         => "field_".$fieldId,
+				    value        => $metadata->{$fieldId},
+				    defaultValue => undef,
+				    options      => $metafields->{$fieldId}->{possibleValues},
+			fieldType    => $metafields->{$fieldId}->{dataType},
+		    };
+		    $fields{ "metadata_" . $fieldId } =
+		             WebGUI::Form::DynamicField->new($session,%{$props})->getValueAsHtml;
+		    last;
+		}
+	    }
         }
 
         push @{ $ticketInfo->{ tickets } }, \%fields;
@@ -1275,6 +1304,7 @@ sub www_viewAllTickets {
             push @{$var->{meta_fields}}, {
                 key     => "metadata_" . $fieldId,
                 label   => $metafields->{$fieldId}->{label},
+                sortable=> 0, # $metafields->{$fieldId}->{sortable},
             };
         }
     }
@@ -1296,9 +1326,30 @@ sub www_viewMyTickets {
 
     return $session->privilege->insufficient unless $self->canView;
 
-    
     $var->{'url_pageData' } = $self->getUrl('func=getAllTickets;filter=myTickets');
     $var->{'showKarmaRank'} = $session->setting->get('useKarma');
+
+    #Set the sort column to creationDate if karma is not enabled.
+    my $sortColumn          = $self->get("sortColumn");
+
+    if($sortColumn eq "karmaRank" && !$var->{'karmaEnabled'}) {
+        $sortColumn = "creationDate";
+    }
+
+    # Add meta fields
+    my $metafields   = $self->getHelpDeskMetaFields({returnHashRef => 1});
+    for my $fieldId ( keys %{$metafields} ) {
+        if ( $metafields->{$fieldId}->{showInList} ) {
+            push @{$var->{meta_fields}}, {
+                key     => "metadata_" . $fieldId,
+                label   => $metafields->{$fieldId}->{label},
+                sortable=> 0, # $metafields->{$fieldId}->{sortable},
+            };
+        }
+    }
+
+    $var->{'sortColumn'   } = $sortColumn;
+    $var->{'sortOrder'    } = $self->get("sortOrder");
 
     return $self->processTemplate($var, $self->getValue("viewMyTemplateId"));
 }
@@ -1422,6 +1473,7 @@ sub www_search {
             push @{$var->{meta_fields}}, {
                 key     => "metadata_" . $fieldId,
                 label   => $metafields->{$fieldId}->{label},
+                sortable=> 0, # $metafields->{$fieldId}->{sortable},
             };
         }
     }
@@ -1648,14 +1700,35 @@ sub www_searchTickets {
         );
 
         # Add metadata fields we should show in the list
+	my $metadata = $ticket->getTicketMetaData( );
         for my $fieldId (keys %{$metafields}) {   
             my $field   = $metafields->{ $fieldId };
-            $fields{ "metadata_" . $fieldId } = $ticket->getTicketMetaData( $fieldId );
+	    $fields{ "metadata_" . $fieldId } = $metadata->{ $fieldId };
+            # look for list fields that require mapped output
+	    #   ideally this mapping would be done elsewhere, but I am putting it here
+	    #   to avoid breaking anything...
+	    for my $checkType ( qw/CheckList ComboBox HiddenList Date DateTime
+			           RadioList SelectBox SelectList/ ) {
+	        if( $metafields->{$fieldId}{dataType} eq $checkType ) {
+		    # make the object and get the value
+		    my $props = {
+			name         => "field_".$fieldId,
+				    value        => $metadata->{$fieldId},
+				    defaultValue => undef,
+				    options      => $metafields->{$fieldId}->{possibleValues},
+			fieldType    => $metafields->{$fieldId}->{dataType},
+		    };
+		    $fields{ "metadata_" . $fieldId } =
+		             WebGUI::Form::DynamicField->new($session,%{$props})->getValueAsHtml;
+		    last;
+		}
+	    }
         }
 
         push @{ $ticketInfo->{ tickets } }, \%fields;
     }
     
+    $session->http->setMimeType( 'application/json' );
     return JSON->new->encode( $ticketInfo );
 }
 

@@ -1007,20 +1007,15 @@ sub processPropertiesFromFormPost {
     }
 
     #This also inserts the record into the search index table
+    # and updates metadata
     $self->update( {
         url        => $session->url->urlize( join "/", $parent->get('url'), $ticketId ),
         ticketId   => $ticketId,
         karmaScale => $karmaScale,
         karma      => $karma,
+	metadata   => [@metadata],
     });
 
-    #update the Ticket meta data
-    foreach my $props (@metadata) {
-        $db->write(
-            "replace into Ticket_metaData (fieldId,assetId,value) values (?,?,?)",
-            [$props->{fieldId},$assetId,$props->{value}]
-        );
-    }
 
     #Automatically subscribe the user posting the ticket - this also creates the subscription group
     $self->subscribe;
@@ -1290,6 +1285,30 @@ sub setStatus {
 
 #----------------------------------------------------------------------------
 
+=head2 setTicketMetaData ( fieldId, value )
+
+fieldId : the id of the field to be set
+
+value : the new value for the field
+
+=cut
+
+sub setTicketMetaData {
+	my $self    = shift;
+	my $fieldId     = shift;
+	my $value     = shift;
+    my $session = $self->session;
+	
+    unless ($self->{_metadata}) {
+       $self->getTicketMetaData();  # prime the meta data
+    }
+    $self->{_metadata}{$fieldId} = $value;
+    $self->update( { metadata => [ { fieldId => $fieldId, value => $value } ] } );
+}
+
+
+#----------------------------------------------------------------------------
+
 =head2 setKarmaScale ( ) 
 
 Properly sets the karma scale of a ticket.
@@ -1440,6 +1459,16 @@ sub update {
     #Update Ticket
     $self->SUPER::update($properties, @_);
 
+	#update the Ticket meta data
+    if( defined $properties->{metadata} && ref $properties->{metadata} eq 'ARRAY' ) {
+	foreach my $props (@{$properties->{metadata}}) {
+	    $db->write(
+		"REPLACE into Ticket_metaData (fieldId,assetId,value) values (?,?,?)",
+		[$props->{fieldId},$self->getId,$props->{value}]
+	    );
+	}
+    }
+
     my $props = {
         assetId         => $self->getId,
         parentId        => $self->getParent->getId,
@@ -1529,7 +1558,6 @@ sub view {
     $var->{'url_postSolution' } = $self->getUrl('func=postSolution');
     $var->{'url_postComment'  } = $self->getUrl('func=postComment');
     $var->{'url_getComment'   } = $self->getUrl('func=getComments');
-    $var->{'url_editComment'  } = $self->getUrl('func=editComment;commentId=');
     $var->{'url_setAssignment'} = $self->getUrl("func=setAssignment");
     $var->{'url_postKeywords' } = $self->getUrl("func=postKeywords");
     $var->{'url_getFormField' } = $self->getUrl("func=getFormField");
@@ -1917,10 +1945,10 @@ sub www_getComments {
         $comment->{'time_formatted'    } = $time;
         $comment->{'datetime_formatted'} = $date." ".$time;
         $comment->{'rating_image'      } = $session->url->extras('wobject/HelpDesk/rating/'.$rating.'.png');
-        $comment->{'canEdit'           } = $comment->{userId} eq $session->user->userId;
+                       # if Visitor(userid=1) can post comments then Admin can edit them
+        $comment->{'canEdit'           } = $comment->{userId} == 1 ? $session->user->userId == 3 :
+                            $comment->{userId} == $session->user->userId;
         $comment->{'commentId'         } = $comment->{id};
-	# TODO thes are silly, self-assignemnt, remove them...
-        #$comment->{'comment'           } = $comment->{comment};
     }
     
     $session->http->setMimeType( 'text/html' );
@@ -2237,10 +2265,7 @@ sub www_saveFormField {
     return $self->processErrors(\@errors) if(scalar(@errors));
 
     #Update the database
-    $session->db->write(
-        "update Ticket_metaData set value=? where fieldId=? and assetId=?",
-        [$value,$fieldId,$self->getId]
-    );
+    $self->setTicketMetaData($fieldId,$value);
     
     #Get the field value
     my $props = {
