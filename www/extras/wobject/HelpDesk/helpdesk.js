@@ -42,6 +42,25 @@ WebGUI.HelpDesk = function (configs) {
     }
 
     ///////////////////////////////////////////////////////////////
+    //              Internationalization
+    //  this comes first because it is used in other areas...
+    ///////////////////////////////////////////////////////////////
+    WebGUI.HelpDesk.i18n = new WebGUI.i18n( {
+        namespaces : {
+            'Asset_HelpDesk' : [
+                'confirm and close',
+                'reopen ticket',
+                'close tab'
+            ]
+        },
+//        onpreload : {
+//            fn       : this.initialize,
+//            obj      : this,
+//            override : true,
+//        }
+    } );
+
+    ///////////////////////////////////////////////////////////////
     //              Protected Static Methods
     ///////////////////////////////////////////////////////////////
     
@@ -197,7 +216,8 @@ WebGUI.HelpDesk = function (configs) {
 			       var myContent = document.createElement("div");
 			       myContent.innerHTML = response.ticketText;
 			       myTab = new YAHOO.widget.Tab({
-				     label: response.ticketId + '<span class="close">X</span>',
+				     label: response.ticketId + '<span class="close"><img src="/extras/wobject/HelpDesk/close12_1.gif" alt="X" title="' +
+                                            WebGUI.HelpDesk.i18n.get('Asset_HelpDesk','close tab') + '" /></span>',
 				     contentEl: myContent
 				 });
 			       WebGUI.helpDeskTabs.addTab( myTab );
@@ -226,23 +246,6 @@ WebGUI.HelpDesk = function (configs) {
             alert("Could not get table cell for " + target);
         }
     };
-
-    ///////////////////////////////////////////////////////////////
-    //              Internationalization
-    ///////////////////////////////////////////////////////////////
-    this.i18n = new WebGUI.i18n( {
-        namespaces : {
-            'Asset_HelpDesk' : [
-                'confirm and close',
-                'reopen ticket'
-            ]
-        },
-//        onpreload : {
-//            fn       : this.initialize,
-//            obj      : this,
-//            override : true,
-//        }
-    } );
 
 
     ///////////////////////////////////////////////////////////////

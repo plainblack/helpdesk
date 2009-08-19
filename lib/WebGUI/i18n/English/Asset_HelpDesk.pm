@@ -233,6 +233,11 @@ You simply replace key1|value1 with your own name/value pairs.},
 		lastUpdated => 0,
 		context => q|'Waiting on external dependancy' status for helpdesk tickets.|
 	},
+    'close tab' => {
+		message => q|Close Tab|,
+		lastUpdated => 0,
+		context => q|Title text for close tab button; displayed as a hint.|
+	},
 #    'TODO' => {
 #		message => q|TODO|,
 #		lastUpdated => 0,
