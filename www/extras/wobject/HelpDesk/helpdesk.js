@@ -52,7 +52,7 @@ WebGUI.HelpDesk = function (configs) {
                 'reopen ticket',
                 'close tab'
             ]
-        }
+        },
 //        onpreload : {
 //            fn       : this.initialize,
 //            obj      : this,
@@ -303,7 +303,6 @@ WebGUI.HelpDesk = function (configs) {
                 generateRequest        : WebGUI.HelpDesk.buildQueryString,
                 paginationEventHandler : WebGUI.HelpDesk.handlePagination,
                 paginator              : this.getPaginator(),
-		dynamicData	: true,	
                 sortedBy               : this.getDefaultSort()
             }
         );
@@ -312,11 +311,6 @@ WebGUI.HelpDesk = function (configs) {
         this.helpdesk.subscribe("cellClickEvent",WebGUI.HelpDesk.loadTicket,this);
         // Override function for custom server-side sorting
         this.helpdesk.sortColumn = WebGUI.HelpDesk.sortColumn;
-        this.helpdesk.handleDataReturnPayload = function (oReq, oRes, oPayload ) {
-		oPayload.totalRecords = parseInt( oRes.meta.totalRecords );
-		return oPayload;
-};
-	this.helpdesk.generateRequest = WebGUI.HelpDesk.buildQueryString;
         
         //Work around nested scoping for the callback
         var myHelpdesk = this.helpdesk;
@@ -354,9 +348,9 @@ WebGUI.HelpDesk.formatLastReply = function ( elCell, oRecord, oColumn, orderNumb
 //***********************************************************************************
 WebGUI.HelpDesk.buildQueryString = function ( state, dt ) {
     var query = ";recordOffset=" + state.pagination.recordOffset 
-        + ';orderByDirection=' + ((state.sortedBy.dir === DataTable.CLASS_ASC) ? "ASC" : "DESC")
+        + ';orderByDirection=' + ((state.sorting.dir === DataTable.CLASS_ASC) ? "ASC" : "DESC")
         + ';rowsPerPage=' + state.pagination.rowsPerPage
-        + ';orderByColumn=' + state.sortedBy.key
+        + ';orderByColumn=' + state.sorting.key
         ;
     return query;
 };
