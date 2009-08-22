@@ -87,6 +87,9 @@ WebGUI.HelpDesk = function (configs) {
         }
         delete WebGUI.HelpDesk.Tickets[index];
         WebGUI.helpDeskTabs.removeTab(myTab);
+        if( WebGUI.HelpDesk.lastTab ) {
+	   WebGUI.helpDeskTabs.set('activeTab',WebGUI.HelpDesk.lastTab);
+        }
     };
 
     //***********************************************************************************
@@ -234,6 +237,7 @@ WebGUI.HelpDesk = function (configs) {
 			   }
 			   delete WebGUI.ticketJScriptRun;
 			   WebGUI.HelpDesk.ticketLoadingIndicator.hide();
+			   WebGUI.HelpDesk.lastTab = tabView.get('activeTab');
 			   WebGUI.helpDeskTabs.set('activeTab',myTab);
 		       },
 		    failure: function(o) {
