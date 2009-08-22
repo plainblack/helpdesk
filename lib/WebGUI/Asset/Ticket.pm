@@ -860,7 +860,7 @@ sub postComment {
 
     my $comments  = $self->get('comments');    
     my $commentId;
-    if(  $options->{commentId} ne 'new' ) {
+    if( $options->{commentId} && $options->{commentId} ne 'new' ) {
         $commentId = $options->{commentId};
         for my $item ( @$comments ) {
 	    if( $item->{id} eq $commentId ) {
