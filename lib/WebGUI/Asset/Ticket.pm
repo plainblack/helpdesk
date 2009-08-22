@@ -892,9 +892,11 @@ sub postComment {
     my $avgRating = $sum/$count;
 
     #Set the solution summary if it was posted
-    my $solution  = $session->form->process("solution","textarea");
-    $solution = WebGUI::HTML::format($solution, 'text');
-    WebGUI::Macro::negate(\$solution) if($solution);
+    if( not $solution ) {
+        $solution  = $session->form->process("solution","textarea");
+        $solution = WebGUI::HTML::format($solution, 'text');
+        WebGUI::Macro::negate(\$solution) if($solution);
+    }
 
     #Update the Ticket.
 	$self->update({
@@ -2118,13 +2120,16 @@ sub www_postComment {
     #Get the rating
     my $rating   = $form->process('rating','commentRating',"0", { defaultRating  => "0" });
 
+    my $status = $form->get("setFormStatus");
+    
     #Set the solution summary if it was posted
     my $solution  = $form->process("solution","textarea");
+    if( $status eq 'resolved' and $solution eq '' ) {
+        $solution = $comment;
+    }
     $solution = WebGUI::HTML::format($solution, 'text');
     WebGUI::Macro::negate(\$solution) if($solution);
 
-    my $status = $form->get("setFormStatus");
-    
     #Post the comment to the comments
     $self->postComment($comment,{
         rating       => $rating,
