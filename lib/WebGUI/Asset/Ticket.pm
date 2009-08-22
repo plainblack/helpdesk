@@ -1948,8 +1948,8 @@ sub www_getComments {
         $comment->{'datetime_formatted'} = $date." ".$time;
         $comment->{'rating_image'      } = $session->url->extras('wobject/HelpDesk/rating/'.$rating.'.png');
                        # if Visitor(userid=1) can post comments then Admin can edit them
-        $comment->{'canEdit'           } = $comment->{userId} == 1 ? $session->user->userId == 3 :
-                            $comment->{userId} == $session->user->userId;
+        $comment->{'canEdit'           } = $comment->{userId} eq '1' ? $session->user->userId eq '3' :
+                            $comment->{userId} eq $session->user->userId;
         $comment->{'commentId'         } = $comment->{id};
     }
     
