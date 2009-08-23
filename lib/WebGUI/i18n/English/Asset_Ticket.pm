@@ -58,6 +58,36 @@ our $I18N = {
         lastUpdated => 1122316558,
         context => q|Notify user od new status assigned to their ticket, parameter is status name|,
     },
+    'post' => {
+		message => q|Post|,
+		lastUpdated => 0,
+		context => q|Label for comment post buttin.|
+	},
+    'reopen ticket' => {
+		message => q|Reopen Ticket|,
+		lastUpdated => 0,
+		context => q|Label for button that reopens a ticket|
+	},
+    'comments' => {
+		message => q|Comments|,
+		lastUpdated => 0,
+		context => q|Label for the comments field in the edit ticket form.|
+	},
+    'solution summary' => {
+		message => q|Solution Summary|,
+		lastUpdated => 0,
+		context => q|Label for the summary field in the edit ticket form.|
+	},
+    'close tab' => {
+		message => q|Close Tab|,
+		lastUpdated => 0,
+		context => q|Title text for close tab button; displayed as a hint.|
+	},
+    'assign to me' => {
+        message => q{Assign To Me},
+        lastUpdated => 0,
+        context => q|This is the text for the label which the user clicks to assign a ticket to themself.|,
+    },
 };
 
 1;

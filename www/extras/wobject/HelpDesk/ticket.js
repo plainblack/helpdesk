@@ -376,7 +376,23 @@ WebGUI.Ticket.setAssignment = function ( o, obj ) {
     if(parts.length > 1) {
         assignedTo  = parts[1];
     }
+    WebGUI.Ticket._setAssignment(assignedTo);
+}
 
+//***********************************************************************************
+// assign the ticket to the current user...
+WebGUI.Ticket.assignToMe = function ( o, obj ) {
+    var target     = YAHOO.util.Event.getTarget(o);
+    var id         = target.id;
+    var parts      = id.split("~");
+    
+    window.assignDialog.hide();
+    WebGUI.Ticket._setAssignment('Assign2Me');
+}
+
+//***********************************************************************************
+//  this is the function that does the final assigment for 'setAssignment' and 'assignToMe'
+WebGUI.Ticket._setAssignment = function (assignedTo) {
     var setAssignmentUrl   = WebGUI.Ticket.setAssignmentUrl + ";assignedTo=" + assignedTo;
     var oCallback = {
         success: function(o) {

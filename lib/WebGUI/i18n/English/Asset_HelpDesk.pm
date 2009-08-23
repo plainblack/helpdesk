@@ -178,26 +178,6 @@ You simply replace key1|value1 with your own name/value pairs.},
 		lastUpdated => 0,
 		context => q|Label for 'confirm mand close' button.|
 	},
-    'post' => {
-		message => q|Post|,
-		lastUpdated => 0,
-		context => q|Label for comment post buttin.|
-	},
-    'comments' => {
-		message => q|Comments|,
-		lastUpdated => 0,
-		context => q|Label for the comments field in the edit ticket form.|
-	},
-    'solution summary' => {
-		message => q|Solution Summary|,
-		lastUpdated => 0,
-		context => q|Label for the summary field in the edit ticket form.|
-	},
-    'reopen ticket' => {
-		message => q|Reopen Ticket|,
-		lastUpdated => 0,
-		context => q|Label for button that reopens a ticket|
-	},
     'pending' => {
 		message => q|Pending|,
 		lastUpdated => 0,
@@ -233,10 +213,15 @@ You simply replace key1|value1 with your own name/value pairs.},
 		lastUpdated => 0,
 		context => q|'Waiting on external dependancy' status for helpdesk tickets.|
 	},
-    'close tab' => {
-		message => q|Close Tab|,
+    'new ticket' => {
+		message => q|New Ticket|,
 		lastUpdated => 0,
-		context => q|Title text for close tab button; displayed as a hint.|
+		context => q|The text for the link clicked to create a new help desk ticket.|
+	},
+    'manage meta fields' => {
+		message => q|Manage Meta Fields|,
+		lastUpdated => 0,
+		context => q|The text for the link to click to open the manager for custom help desk data fields.|
 	},
 #    'TODO' => {
 #		message => q|TODO|,

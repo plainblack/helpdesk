@@ -2313,10 +2313,13 @@ sub www_setAssignment {
     unless ($assignedTo) {
         push(@errors,'You have not chosen someone to assign this ticket to.');
     }
+    if( $assignedTo eq 'Assign2Me' ) {
+        $assignedTo = $session->user->getId;
+    }
 
     return $self->processErrors(\@errors) if(scalar(@errors));
     
-    my $userId        = $session->user->userId;
+    my $userId        = $session->user->getId;
     my $dateAssigned  = $session->datetime->time();
     my $username      = "unassigned";
 
