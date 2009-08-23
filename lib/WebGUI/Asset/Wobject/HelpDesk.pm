@@ -1103,16 +1103,16 @@ sub www_getAllTickets {
         $sql = $self->getLineageSql(['children'], $rules);
     }
 
-    my $recordOffset        = $form->get( 'recordOffset' ) || 1;
+    my $startIndex        = $form->get( 'startIndex' ) || 1;
     my $rowsPerPage         = $form->get( 'rowsPerPage' ) || 25;
-    my $currentPage         = int ( $recordOffset / $rowsPerPage ) + 1;
+    my $currentPage         = int ( $startIndex / $rowsPerPage ) + 1;
     
     my $p = WebGUI::Paginator->new( $session, '', $rowsPerPage, 'pn', $currentPage );
     $p->setDataByQuery($sql);
 
     $ticketInfo->{'recordsReturned'} = $rowsPerPage;
     $ticketInfo->{'totalRecords'   } = $p->getRowCount; 
-    $ticketInfo->{'startIndex'     } = $recordOffset;
+    $ticketInfo->{'startIndex'     } = $startIndex;
     $ticketInfo->{'sort'           } = $orderByColumn;
     $ticketInfo->{'dir'            } = $orderByDirection;
     $ticketInfo->{'tickets'        } = [];
@@ -1507,15 +1507,15 @@ sub www_searchTickets {
     my $orderByColumn    = $form->get( 'orderByColumn' ) || "creationDate";
     my $orderByDirection = lc $form->get( 'orderByDirection' ) eq "asc" ? "ASC" : "DESC";
     
-    my $recordOffset     = $form->get( 'recordOffset' ) || 1;
+    my $startIndex     = $form->get( 'startIndex' ) || 1;
     my $rowsPerPage      = $form->get( 'rowsPerPage' ) || 25;
-    my $currentPage      = int ( $recordOffset / $rowsPerPage ) + 1;
+    my $currentPage      = int ( $startIndex / $rowsPerPage ) + 1;
 
     #Set some initial ticket info
     my $ticketInfo                   = {};        
     $ticketInfo->{'recordsReturned'} = $rowsPerPage;
     $ticketInfo->{'totalRecords'   } = 0; 
-    $ticketInfo->{'startIndex'     } = $recordOffset;
+    $ticketInfo->{'startIndex'     } = $startIndex;
     $ticketInfo->{'sort'           } = $orderByColumn;
     $ticketInfo->{'dir'            } = $orderByDirection;
     $ticketInfo->{'tickets'        } = [];

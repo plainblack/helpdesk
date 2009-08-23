@@ -38,7 +38,7 @@ WebGUI.HelpDesk = function (configs) {
     }
 
     if(!this._configs.initiRequestString) {
-        this._configs.initRequestString = ';recordOffset=0';
+        this._configs.initRequestString = ';startIndex=0';
     }
 
     ///////////////////////////////////////////////////////////////
@@ -98,13 +98,13 @@ WebGUI.HelpDesk = function (configs) {
         var sortedBy  = dt.get('sortedBy');
         // Define the new state
         var newState = {
-            startIndex: state.recordOffset, 
+            startIndex: state.startIndex, 
             sorting: {
                 key: sortedBy.key,
                 dir: ((sortedBy.dir === DataTable.CLASS_ASC) ? "asc" : "desc")
             },
             pagination : { // Pagination values
-                recordOffset: state.recordOffset, // Go to the proper page offset
+                startIndex: state.startIndex, // Go to the proper page offset
                 rowsPerPage: state.rowsPerPage // Return the proper rows per page
             }
         };
@@ -140,7 +140,7 @@ WebGUI.HelpDesk = function (configs) {
                 dir: (sDir === "asc") ? DataTable.CLASS_ASC : DataTable.CLASS_DESC
             },
             pagination : { // Pagination values
-                recordOffset: 0, // Default to first page when sorting
+                startIndex: 0, // Default to first page when sorting
                 rowsPerPage: this.get("paginator").getRowsPerPage() // Keep current setting
             }
         };
@@ -369,7 +369,7 @@ WebGUI.HelpDesk.formatLastReply = function ( elCell, oRecord, oColumn, orderNumb
 
 //***********************************************************************************
 WebGUI.HelpDesk.buildQueryString = function ( state, dt ) {
-    var query = ";recordOffset=" + state.pagination.recordOffset 
+    var query = ";startIndex=" + state.pagination.startIndex 
         + ';orderByDirection=' + ((state.sortedBy.dir === DataTable.CLASS_ASC) ? "ASC" : "DESC")
         + ';rowsPerPage=' + state.pagination.rowsPerPage
         + ';orderByColumn=' + state.sortedBy.key
