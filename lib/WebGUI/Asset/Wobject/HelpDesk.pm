@@ -1287,7 +1287,7 @@ sub www_viewAllTickets {
     return $session->privilege->insufficient unless $self->canView;
 
     my $var     = {};
-    $var->{'url_pageData' } = $self->getUrl('func=getAllTickets');
+    $var->{'url_pageData' } = $self->getUrl('func=getAllTickets;');
     $var->{'karmaEnabled' } = $self->karmaIsEnabled;
 
     #Set the sort column to creationDate if karma is not enabled.
@@ -1326,7 +1326,7 @@ sub www_viewMyTickets {
 
     return $session->privilege->insufficient unless $self->canView;
 
-    $var->{'url_pageData' } = $self->getUrl('func=getAllTickets;filter=myTickets');
+    $var->{'url_pageData' } = $self->getUrl('func=getAllTickets;filter=myTickets;');
     $var->{'showKarmaRank'} = $session->setting->get('useKarma');
 
     #Set the sort column to creationDate if karma is not enabled.
