@@ -892,9 +892,11 @@ sub postComment {
     my $avgRating = $sum/$count;
 
     #Set the solution summary if it was posted
-    my $solution  = $session->form->process("solution","textarea");
-    $solution = WebGUI::HTML::format($solution, 'text');
-    WebGUI::Macro::negate(\$solution) if($solution);
+    if( not $solution ) {
+        $solution  = $session->form->process("solution","textarea");
+        $solution = WebGUI::HTML::format($solution, 'text');
+        WebGUI::Macro::negate(\$solution) if($solution);
+    }
 
     #Update the Ticket.
 	$self->update({
@@ -1946,8 +1948,8 @@ sub www_getComments {
         $comment->{'datetime_formatted'} = $date." ".$time;
         $comment->{'rating_image'      } = $session->url->extras('wobject/HelpDesk/rating/'.$rating.'.png');
                        # if Visitor(userid=1) can post comments then Admin can edit them
-        $comment->{'canEdit'           } = $comment->{userId} == 1 ? $session->user->userId == 3 :
-                            $comment->{userId} == $session->user->userId;
+        $comment->{'canEdit'           } = $comment->{userId} eq '1' ? $session->user->userId eq '3' :
+                            $comment->{userId} eq $session->user->userId;
         $comment->{'commentId'         } = $comment->{id};
     }
     
@@ -2118,13 +2120,16 @@ sub www_postComment {
     #Get the rating
     my $rating   = $form->process('rating','commentRating',"0", { defaultRating  => "0" });
 
+    my $status = $form->get("setFormStatus");
+    
     #Set the solution summary if it was posted
     my $solution  = $form->process("solution","textarea");
+    if( $status eq 'resolved' and $solution eq '' ) {
+        $solution = $comment;
+    }
     $solution = WebGUI::HTML::format($solution, 'text');
     WebGUI::Macro::negate(\$solution) if($solution);
 
-    my $status = $form->get("setFormStatus");
-    
     #Post the comment to the comments
     $self->postComment($comment,{
         rating       => $rating,

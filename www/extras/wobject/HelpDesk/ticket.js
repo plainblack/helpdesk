@@ -352,10 +352,10 @@ WebGUI.Ticket.saveFieldValue = function(o, obj) {
         var solutionFormStatus           = YAHOO.util.Dom.get("setFormStatus_formId");
         solutionFormStatus.value         = fieldValue;
         WebGUI.Ticket.statusChanged      = true;
-        if(fieldValue == "resolved") {
-            var solutionSummaryDiv  = YAHOO.util.Dom.get();
-            YAHOO.util.Dom.setStyle("solutionSummary_div","display","");
-        }
+        // if(fieldValue == "resolved") {
+            // var solutionSummaryDiv  = YAHOO.util.Dom.get();
+            // YAHOO.util.Dom.setStyle("solutionSummary_div","display","");
+        // }
         window.solutionDialog.show();
     }
     else {

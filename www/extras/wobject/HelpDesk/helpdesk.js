@@ -87,6 +87,9 @@ WebGUI.HelpDesk = function (configs) {
         }
         delete WebGUI.HelpDesk.Tickets[index];
         WebGUI.helpDeskTabs.removeTab(myTab);
+        if( WebGUI.HelpDesk.lastTab ) {
+	   WebGUI.helpDeskTabs.set('activeTab',WebGUI.HelpDesk.lastTab);
+        }
     };
 
     //***********************************************************************************
@@ -155,11 +158,24 @@ WebGUI.HelpDesk = function (configs) {
     };
 
     //***********************************************************************************
+    //  This method checks for modifier keys pressed during the mouse click
+    function eventModifiers( e ) {
+        if( e.event.modifiers ) {
+            return e.event.modifiers & (Event.ALT_MASK | Event.CONTROL_MASK
+                                | Event.SHIFT_MASK | Event.META_MASK);
+        } else {
+            return  e.event.altKey | e.event.shiftKey | e.event.ctrlKey;
+        }
+    }
+
+    //***********************************************************************************
     //  This method is subscribed to by the DataTable and thus becomes a member of the DataTable
     //  class even though it is a member of the HelpDesk Class.  For this reason, a HelpDesk instance
     //  is actually passed to the method as it's second parameter.
     //
     WebGUI.HelpDesk.loadTicket = function ( evt, obj ) {
+               // if the user pressed a modifier key we want to default
+        if( eventModifiers( evt ) ) { return }
         var target = evt.target;
 	if( typeof(WebGUI.HelpDesk.Tickets) == "undefined" ) {
 	    WebGUI.HelpDesk.Tickets = new Object();
@@ -234,6 +250,7 @@ WebGUI.HelpDesk = function (configs) {
 			   }
 			   delete WebGUI.ticketJScriptRun;
 			   WebGUI.HelpDesk.ticketLoadingIndicator.hide();
+			   WebGUI.HelpDesk.lastTab = tabView.get('activeTab');
 			   WebGUI.helpDeskTabs.set('activeTab',myTab);
 		       },
 		    failure: function(o) {

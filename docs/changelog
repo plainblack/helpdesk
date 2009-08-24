@@ -1,2 +1,5 @@
+August 21, 2009
+- RFE 8804: use only one textbox to enter both comment and solution when resolving a ticket
+- betterment: made closing a helpdesk tab return the user to the tab they openet it from
 December 9, 2008
 - fixed Bug/RFE #8934: tracker not reporting 'Date Assigned' correctly
