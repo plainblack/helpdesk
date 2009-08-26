@@ -1704,7 +1704,8 @@ sub view {
             ticketText => $output,
             ticketId => $self->get('ticketId'),
         });
-        $session->http->setMimeType( 'text/html' );
+        #$session->http->setMimeType( 'text/html' );
+        $session->log->preventDebugOutput;
     } else {
         $session->http->setMimeType( 'text/html' );
        $output = $parent->processStyle($output),
@@ -1954,6 +1955,7 @@ sub www_getComments {
     }
     
     $session->http->setMimeType( 'text/html' );
+    $session->log->preventDebugOutput;
     return $self->processTemplate(
         $var,
         $parent->get("viewTicketCommentsTemplateId")
@@ -2054,6 +2056,7 @@ sub www_getFormField {
     #Return the output
     my $output = qq{<form id="form_$fieldId">$headtags $htmlElement<input type="hidden" name="fieldId" value="$fieldId"></form>};
     $session->http->setMimeType( 'text/html' );
+    $session->log->preventDebugOutput;
     return $output;
 }
 
@@ -2075,6 +2078,7 @@ sub www_getHistory {
     $var->{'history_loop'} = $self->getHistory;
     
     $self->session->http->setMimeType( 'text/html' );
+    $self->session->log->preventDebugOutput;
     return $self->processTemplate(
         $var,
         $self->getParent->get("viewTicketHistoryTemplateId")
@@ -2282,6 +2286,7 @@ sub www_saveFormField {
     };
 
     $value = WebGUI::Form::DynamicField->new($session,%{$props})->getValueAsHtml;
+    $session->log->preventDebugOutput;
 
     return "{ value:'$value', username:'$username' }";
 }
