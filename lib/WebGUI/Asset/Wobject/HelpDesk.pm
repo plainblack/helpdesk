@@ -1364,7 +1364,7 @@ sub www_search {
     
     $var->{ 'form_start'     } 
         = WebGUI::Form::formHeader( $session, {
-            action  => $self->getUrl('func=searchTickets;action=search'),
+            action  => $self->getUrl('func=searchTickets;action=search;'),
             extras  => q{id="searchForm"}
         });
     $var->{ 'form_end'       } = WebGUI::Form::formFooter( $session );
@@ -1464,7 +1464,7 @@ sub www_search {
     $var->{'meta_loop'     } = \@metaFieldsLoop;
     $var->{'hasMetaFields' } = scalar(@metaFieldsLoop);
 
-    $var->{'url_pageData'  } = $self->getUrl('func=searchTickets');
+    $var->{'url_pageData'  } = $self->getUrl('func=searchTickets;');
 
     # Add meta fields
     my $metafields   = $self->getHelpDeskMetaFields({returnHashRef => 1});
