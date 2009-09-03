@@ -86,8 +86,23 @@ our $I18N = {
     'assign to me' => {
         message => q{Assign To Me},
         lastUpdated => 0,
-        context => q|This is the text for the label which the user clicks to assign a ticket to themself.|,
+        context => q|Click here to assign the ticket to yourself.|,
     },
+    'unassign' => {
+        message => q{Unassign},
+        lastUpdated => 0,
+        context => q|The user clicks this to change an assigned ticket to unassigned.|,
+    },
+    'change' => {
+        message => q{Change},
+        lastUpdated => 0,
+        context => q|Click here to change the value of the field|,
+    },
+#    'TODO' => {
+#        message => q{TODO},
+#        lastUpdated => 0,
+#        context => q|TODO|,
+#    },
 };
 
 1;

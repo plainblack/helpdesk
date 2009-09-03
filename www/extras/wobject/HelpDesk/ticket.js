@@ -139,16 +139,7 @@ WebGUI.Ticket.postComment = function (evt, obj) {
                         var solutionSummary       = YAHOO.util.Dom.get("solution");
                         solutionSummary.innerHTML = response.solutionSummary;
                         WebGUI.Ticket.toggleSolutionRow(response.ticketStatus);
-                        //Hide the dialog
-                        if(window.solutionDialog) window.solutionDialog.hide();
                         //Update ticket status if this was a post to change status
-                        if(WebGUI.Ticket.statusChanged) {
-                            WebGUI.Ticket.saveFieldValue(o,{
-                                fieldId   : 'ticketStatus'
-                            });
-                            WebGUI.Ticket.statusChanged = false;
-                        }
-                        else {
                             //Set ticket status as it may have been changed to pending after a comment was made
                             YAHOO.util.Dom.get("field_id_ticketStatus").innerHTML = response.ticketStatus;
                             //Handle the corner case where someone who has status change privs clicks the change status button but then posts a regular comment
@@ -170,7 +161,6 @@ WebGUI.Ticket.postComment = function (evt, obj) {
                             }
                             //History is rebuilt by the saveFieldValue method in the other condition
                             WebGUI.Ticket.rebuildHistory();
-                        }
                         var ticketStatus = response.ticketStatus.toLowerCase();
                         //change the button text if the status is now resolved
                         var commentsBtn = YAHOO.util.Dom.get("commentsBtn");
@@ -291,6 +281,37 @@ WebGUI.Ticket.removeAllChildren = function( node ) {
 }
 
 //***********************************************************************************
+WebGUI.Ticket.saveInstantFieldValue = function(target, value) {
+                alert('in save instant field value');
+    var fieldId = target.name;
+    var myURL = WebGUI.Ticket.saveUrl + ';fieldId=' + fieldId + ';value=' + escape( value );
+                alert(myURL);
+   
+    var oCallback = {
+        success: function(o) {
+            var response = eval('(' + o.responseText + ')');
+            if(response.hasError){
+                alert(WebGUI.Ticket.processErrors(response.errors));
+            }
+            else {
+                WebGUI.Ticket.rebuildHistory();
+            }
+                alert('URL Get success:' + myURL);
+        },
+        failure: function(o) {
+                alert('URL Get failed:' + myURL);
+             }
+    };
+
+    YAHOO.util.Connect.asyncRequest('GET', myURL, oCallback);
+}
+
+//***********************************************************************************
+WebGUI.Ticket.saveTicketStatus = function(target) {
+    var value = target.options[target.selectedIndex].value;
+    WebGUI.Ticket.saveInstantFieldValue(target,value);
+};
+//***********************************************************************************
 WebGUI.Ticket.saveFieldValue = function(o, obj) {
     var button     = null;
     if(WebGUI.Ticket.statusChanged == true) {
@@ -337,31 +358,14 @@ WebGUI.Ticket.saveFieldValue = function(o, obj) {
                 if(fieldId == "karmaScale") {
                     YAHOO.util.Dom.get("solution_formId").value = "Difficulty updated by " + response.username;
                     YAHOO.util.Dom.get("karmaRank").innerHTML = response.karmaRank;
-                    window.solutionDialog.show();
                 }
             }
         },
         failure: function(o) {}
     };
 
-    //Pop up the comment box when you change a status
-    if(fieldId == "ticketStatus" && !WebGUI.Ticket.statusChanged ) {
-        var fieldValue                   = WebGUI.Form.getFormValue(formField);
-        var solutionDialog               = YAHOO.util.Dom.get("solution_formId");
-        solutionDialog.value             = WebGUI.Ticket.statusValues[fieldValue] + " by " + WebGUI.Ticket.currentUser;
-        var solutionFormStatus           = YAHOO.util.Dom.get("setFormStatus_formId");
-        solutionFormStatus.value         = fieldValue;
-        WebGUI.Ticket.statusChanged      = true;
-        // if(fieldValue == "resolved") {
-            // var solutionSummaryDiv  = YAHOO.util.Dom.get();
-            // YAHOO.util.Dom.setStyle("solutionSummary_div","display","");
-        // }
-        window.solutionDialog.show();
-    }
-    else {
-        YAHOO.util.Connect.setForm(formField.form);
-        YAHOO.util.Connect.asyncRequest('POST', WebGUI.Ticket.saveUrl, oCallback);
-    }
+    YAHOO.util.Connect.setForm(formField.form);
+    YAHOO.util.Connect.asyncRequest('POST', WebGUI.Ticket.saveUrl, oCallback);
 }
 
 //***********************************************************************************
@@ -413,8 +417,8 @@ WebGUI.Ticket._setAssignment = function (assignedTo) {
 
 //***********************************************************************************
 WebGUI.Ticket.showAssignDialog = function (o) {
-    var ticketStatus = YAHOO.util.Dom.get("field_id_ticketStatus");
-    if(ticketStatus.innerHTML == "Closed") {
+    var ticketStatus = YAHOO.util.Dom.get("ticketStatus_formId");
+    if(ticketStatus.options[ticketStatus.selectedIndex] == "closed") {
         alert("You cannot assign a closed ticket.  Please reopen the ticket and try again");
     }
     else {

@@ -379,6 +379,7 @@ sub getCommonDisplayVars {
     my $session = $self->session;
     my $parent  = $self->getParent;
     my $var     = $self->get;
+    my $ticketStatus;
 
     my $assignedTo= ($var->{'assignedTo'})
         ? WebGUI::User->new($session,$var->{'assignedTo'})->username
@@ -390,8 +391,10 @@ sub getCommonDisplayVars {
         : ""
         ;
     
+    $ticketStatus = $parent->getStatus($self->get("ticketStatus"));
+
     #Format Data for Display
-    $var->{'ticketStatus'     } = $parent->getStatus($self->get("ticketStatus"));
+    $var->{'ticketStatus'     } = $ticketStatus;
     $var->{'isAssigned'       } = $self->isAssigned;
     $var->{'assignedTo'       } = $assignedTo;
     $var->{'assignedBy'       } = $assignedBy;
@@ -1575,8 +1578,8 @@ sub view {
 
     #Icons
     $var->{'edit_icon_src'    } = $self->session->icon->getBaseURL()."edit.gif";
-    $var->{'edit_icon'        } = $self->getImageIcon('edit','Change');
-    $var->{'delete_icon'      } = $self->getImageIcon('delete');
+    $var->{'edit_icon'        } = $self->getImageIcon('edit',$i18n->get('change'));
+    $var->{'unassign_icon'    } = $self->getImageIcon('delete',$i18n->get('unassign'));
     
     #Send permissions to the tempalte
     $var->{'canPost'                 } = $self->canPost;
@@ -1589,6 +1592,21 @@ sub view {
     $var->{'isOwner'                 } = $user->userId eq $self->get("ownerUserId");
     $var->{'ticketResolved'          } = $self->get("ticketStatus") eq "resolved";
     $var->{'ticketResolvedAndIsOwner'} = $var->{'ticketResolved'} && $var->{'isOwner'};
+
+    # if the user can change the status then send an editable field
+    # ( ticketStatus is set bu getCommonDisplayVars )
+    if( $self->canChangeStatus ) {
+        my $status = $parent->getStatus;
+        delete $status->{pending};
+        delete $status->{closed};
+        $var->{'ticketStatus'} = WebGUI::Form::selectBox($session,{
+		name    =>"ticketStatus",
+                id      =>"ticketStatusAjaxEdit",
+		options => $status,
+		value   => $self->get("ticketStatus"),
+                extras  => q{class="dyn_form_field" onchange="WebGUI.Ticket.saveTicketStatus(this)"}
+	    });
+    }
 
     #Process template for Related Files
     my $relatedFilesVars        = $self->getRelatedFilesVars($var->{'storageId'});
@@ -1613,7 +1631,16 @@ sub view {
     #Karma
     $var->{'useKarma'         } = $parent->karmaIsEnabled;
     $var->{'karma'            } = $self->get("karma") || 0;
-    $var->{'karmaScale'       } = $self->get("karmaScale");
+    if( $self->canEdit ) {
+        $var->{'karmaScale'} = WebGUI::Form::text($session,{
+			    name      => "karmaScale",
+			    value     => $self->get("karmaScale"),
+			    maxlength => "11",
+			    extras  => q{class="dyn_form_field"}
+			})
+    } else {
+        $var->{'karmaScale'       } = $self->get("karmaScale");
+    }
     $var->{'karmaRank'        } = sprintf("%.2f",$self->get("karmaRank"));
     $var->{'hasKarma'         } = ($user->isRegistered && $user->karma > 0);
     
@@ -1988,9 +2015,10 @@ sub www_getFormField {
 
         $htmlElement = WebGUI::Form::selectBox($session,{
             name    =>"ticketStatus",
+	    id      =>"ticketStatusAjaxEdit",
             options => $status,
             value   => $self->get("ticketStatus"),
-            extras  => q{class="dyn_form_field"}
+            extras  => q{class="dyn_form_field" onchange="WebGUI.Ticket.saveTicketStatus(this)"}
         });
     }
     #Handle karma scale
@@ -2204,6 +2232,7 @@ Saves the form field and returns the value.
 sub www_saveFormField {
     my $self      = shift;
     my $session   = $self->session;
+    my $form = $session->form;
     my $parent    = $self->getParent;
     my $fieldId   = $session->form->get("fieldId");
     my $username  = $session->user->username;
@@ -2215,7 +2244,7 @@ sub www_saveFormField {
     #Handle ticket status posts
     if($fieldId eq "ticketStatus") {
         #Get the value of the status
-        my $value     = $session->form->get("ticketStatus");
+        my $value     = $form->get("ticketStatus") || $form->get("value");
         #Check ticket status change permissions
         push(@errors,'ERROR: You do not have permission to change the status of this ticket') unless($self->canChangeStatus);
         return $self->processErrors(\@errors) if(scalar(@errors));
