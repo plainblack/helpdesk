@@ -30,22 +30,22 @@ find t/ -type f | xargs -I{} rm -f $WEBGUI/{}
 # find t/ -type f | xargs -I{} diff -u $helpdesk/{} $WEBGUI/{}
 
 echo link new helpdsk files into WebGUI directory
-find sbin/ -type f | xargs -I{} ln $helpdesk/{} $WEBGUI/{}
+find sbin/ -type f | xargs -I{} ln -s $helpdesk/{} $WEBGUI/{}
 find www/ -type d | xargs -I{} mkdir $WEBGUI/{} 2> /dev/null
-find www/ -type f | xargs -I{} ln $helpdesk/{} $WEBGUI/{}
-find lib/ -type f | xargs -I{} ln $helpdesk/{} $WEBGUI/{}
-find t/ -type f | xargs -I{} ln $helpdesk/{} $WEBGUI/{}
+find www/ -type f | xargs -I{} ln -s $helpdesk/{} $WEBGUI/{}
+find lib/ -type f | xargs -I{} ln -s $helpdesk/{} $WEBGUI/{}
+find t/ -type f | xargs -I{} ln -s $helpdesk/{} $WEBGUI/{}
 # note that it is necessary to re-create the hard links any time you update the git repo...
 
-# be sure to edit the config file:
+## be sure to edit the config file:
 cd $WEBGUI/sbin
 echo cd to `pwd`
 echo run helpdesk install
 perl  $helpdesk/sbin/installHelpDesk.pl --configFile localhost.conf
 
-echo create database
+#echo create database
 wgd.old db < $helpdesk/docs/helpdesk.sql
 
-echo install package
+#echo install package
 wgd package --import $helpdesk/docs/help_desk.wgpkg
 
