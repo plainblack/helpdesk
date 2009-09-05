@@ -1597,13 +1597,14 @@ sub view {
     # ( ticketStatus is set bu getCommonDisplayVars )
     if( $self->canChangeStatus ) {
         my $status = $parent->getStatus;
-        delete $status->{pending};
+	my $value   = $self->get("ticketStatus");
+        delete $status->{pending} unless $value eq 'pending';
         delete $status->{closed};
         $var->{'ticketStatus'} = WebGUI::Form::selectBox($session,{
 		name    =>"ticketStatus",
                 id      =>"ticketStatusAjaxEdit",
 		options => $status,
-		value   => $self->get("ticketStatus"),
+		value   => $value,
                 extras  => q{class="dyn_form_field" onchange="WebGUI.Ticket.saveTicketStatus(this)"}
 	    });
     }
@@ -1636,7 +1637,7 @@ sub view {
 			    name      => "karmaScale",
 			    value     => $self->get("karmaScale"),
 			    maxlength => "11",
-			    extras  => q{class="dyn_form_field"}
+                            extras  => q{class="dyn_form_field" onchange="WebGUI.Ticket.saveKarmaScale(this)"}
 			})
     } else {
         $var->{'karmaScale'       } = $self->get("karmaScale");
@@ -2009,15 +2010,16 @@ sub www_getFormField {
     if($fieldId eq "ticketStatus") {
         #Only users who can change the status should be returned the form field
         return $session->privilege->insufficient  unless $self->canChangeStatus;
+        my $value   = $self->get("ticketStatus");
         my $status = $parent->getStatus;
-        delete $status->{pending};
+        delete $status->{pending} unless $value eq 'pending';
         delete $status->{closed};
 
         $htmlElement = WebGUI::Form::selectBox($session,{
             name    =>"ticketStatus",
 	    id      =>"ticketStatusAjaxEdit",
             options => $status,
-            value   => $self->get("ticketStatus"),
+            value   => $value,
             extras  => q{class="dyn_form_field" onchange="WebGUI.Ticket.saveTicketStatus(this)"}
         });
     }
@@ -2260,7 +2262,7 @@ sub www_saveFormField {
     #Handle karma scale posts
     elsif($fieldId eq "karmaScale") {
         #Get the value of the karma scale
-        my $value     = $session->form->get("karmaScale");
+        my $value     = $session->form->get("karmaScale") || $form->get("value");
         #Handle karma errors
         push(@errors,'ERROR: You do not have permission to change the difficulty of this ticket') unless($self->canEdit);
         push(@errors,'ERROR: Difficulty cannot be zero or empty') unless($value);
@@ -2659,6 +2661,7 @@ sub www_userSearch {
     }
 
     $session->http->setMimeType( 'text/html' );
+    $session->log->preventDebugOutput;
     return $self->processTemplate(
         $var,
         $parent->get("viewTicketUserListTemplateId")

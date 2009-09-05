@@ -282,10 +282,8 @@ WebGUI.Ticket.removeAllChildren = function( node ) {
 
 //***********************************************************************************
 WebGUI.Ticket.saveInstantFieldValue = function(target, value) {
-                alert('in save instant field value');
     var fieldId = target.name;
     var myURL = WebGUI.Ticket.saveUrl + ';fieldId=' + fieldId + ';value=' + escape( value );
-                alert(myURL);
    
     var oCallback = {
         success: function(o) {
@@ -296,7 +294,6 @@ WebGUI.Ticket.saveInstantFieldValue = function(target, value) {
             else {
                 WebGUI.Ticket.rebuildHistory();
             }
-                alert('URL Get success:' + myURL);
         },
         failure: function(o) {
                 alert('URL Get failed:' + myURL);
@@ -307,8 +304,17 @@ WebGUI.Ticket.saveInstantFieldValue = function(target, value) {
 }
 
 //***********************************************************************************
+WebGUI.Ticket.saveKarmaScale = function(target) {
+    WebGUI.Ticket.saveInstantFieldValue(target,target.value);
+};
+//***********************************************************************************
 WebGUI.Ticket.saveTicketStatus = function(target) {
     var value = target.options[target.selectedIndex].value;
+    // if the pending option is in the list, then remove it...
+    // so the user can't change the value back to pending
+    if( target.options[0].value == 'pending' ) {
+        target.remove(0);
+    }
     WebGUI.Ticket.saveInstantFieldValue(target,value);
 };
 //***********************************************************************************
