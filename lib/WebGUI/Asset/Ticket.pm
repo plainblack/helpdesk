@@ -1600,7 +1600,7 @@ sub view {
 	my $value   = $self->get("ticketStatus");
         delete $status->{pending} unless $value eq 'pending';
         delete $status->{closed};
-        delete $status->{feedback} if ! $session->user->isInGroup($self->parent->get('groupToChangeStatus'));
+        delete $status->{feedback} if ! $session->user->isInGroup($parent->get('groupToChangeStatus'));
         $var->{'ticketStatus'} = WebGUI::Form::selectBox($session,{
 		name    =>"ticketStatus",
                 id      =>"ticketStatusAjaxEdit",
@@ -2015,7 +2015,7 @@ sub www_getFormField {
         my $status = $parent->getStatus;
         delete $status->{pending} unless $value eq 'pending';
         delete $status->{closed};
-        delete $status->{feedback} if ! $session->user->isInGroup($self->parent->get('groupToChangeStatus'));
+        delete $status->{feedback} if ! $session->user->isInGroup($parent->get('groupToChangeStatus'));
 
         $htmlElement = WebGUI::Form::selectBox($session,{
             name    =>"ticketStatus",
