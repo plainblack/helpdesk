@@ -1594,12 +1594,13 @@ sub view {
     $var->{'ticketResolvedAndIsOwner'} = $var->{'ticketResolved'} && $var->{'isOwner'};
 
     # if the user can change the status then send an editable field
-    # ( ticketStatus is set bu getCommonDisplayVars )
+    # ( ticketStatus is set by getCommonDisplayVars )
     if( $self->canChangeStatus ) {
         my $status = $parent->getStatus;
 	my $value   = $self->get("ticketStatus");
         delete $status->{pending} unless $value eq 'pending';
         delete $status->{closed};
+        delete $status->{feedback} if ! $session->user->isInGroup($self->parent->get('groupToChangeStatus'));
         $var->{'ticketStatus'} = WebGUI::Form::selectBox($session,{
 		name    =>"ticketStatus",
                 id      =>"ticketStatusAjaxEdit",
@@ -2014,6 +2015,7 @@ sub www_getFormField {
         my $status = $parent->getStatus;
         delete $status->{pending} unless $value eq 'pending';
         delete $status->{closed};
+        delete $status->{feedback} if ! $session->user->isInGroup($self->parent->get('groupToChangeStatus'));
 
         $htmlElement = WebGUI::Form::selectBox($session,{
             name    =>"ticketStatus",
