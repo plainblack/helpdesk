@@ -2328,7 +2328,6 @@ sub www_saveFormField {
             rating       => $rating,
             commentId    => $commentId,
         });
-        $comment =~ s/\n/<br>/g;
         return "{ value: '$comment', rating:'$rating'," .
                " ratingId: '$ratingId', ratingImage:'$ratingImage'}";
     }
