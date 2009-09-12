@@ -41,11 +41,11 @@ find t/ -type f | xargs -I{} ln -s $helpdesk/{} $WEBGUI/{}
 cd $WEBGUI/sbin
 echo cd to `pwd`
 echo run helpdesk install
-perl  $helpdesk/sbin/installHelpDesk.pl --configFile localhost.conf
+perl $helpdesk/sbin/installHelpDesk.pl --configFile localhost.conf
 
-#echo create database
-wgd.old db < $helpdesk/docs/helpdesk.sql
+echo create database
+wgd -F $WEBGUI/etc/localhost.conf db < $helpdesk/docs/helpdesk.sql
 
-#echo install package
-wgd package --import $helpdesk/docs/help_desk.wgpkg
+echo install package
+wgd -F $WEBGUI/etc/localhost.conf package --import $helpdesk/docs/help_desk.wgpkg
 
