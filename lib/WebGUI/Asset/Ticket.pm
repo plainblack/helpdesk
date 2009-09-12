@@ -381,14 +381,21 @@ sub getCommonDisplayVars {
     my $var     = $self->get;
     my $ticketStatus;
 
+    my $createdBy=  WebGUI::User->new($session,$var->{'createdBy'});
+
     my $assignedTo= ($var->{'assignedTo'})
-        ? WebGUI::User->new($session,$var->{'assignedTo'})->username
-        : "unassigned"
+        ? WebGUI::User->new($session,$var->{'assignedTo'})
+        : undef
         ;
 
     my $assignedBy= ($var->{'assignedBy'})
-        ? WebGUI::User->new($session,$var->{'assignedBy'})->username
-        : ""
+        ? WebGUI::User->new($session,$var->{'assignedBy'})
+        : undef
+        ;
+    
+    my $resolvedBy= ($var->{'resolvedBy'})
+        ? WebGUI::User->new($session,$var->{'resolvedBy'})
+        : undef
         ;
     
     $ticketStatus = $parent->getStatus($self->get("ticketStatus"));
@@ -396,9 +403,14 @@ sub getCommonDisplayVars {
     #Format Data for Display
     $var->{'ticketStatus'     } = $ticketStatus;
     $var->{'isAssigned'       } = $self->isAssigned;
-    $var->{'assignedTo'       } = $assignedTo;
-    $var->{'assignedBy'       } = $assignedBy;
-    $var->{'createdBy'        } = WebGUI::User->new($session,$var->{'createdBy'})->username;
+    $var->{'assignedTo'       } = $assignedTo ? $assignedTo->username : 'unassigned';
+    $var->{'assignedToUrl'    } = $assignedTo ? $assignedTo->getProfileUrl : 0 ;
+    $var->{'assignedBy'       } = $assignedBy ? $assignedBy->username : '' ;
+    $var->{'assignedByUrl'    } = $assignedBy ? $assignedBy->getProfileUrl : 0 ;
+    $var->{'resolvedBy'       } = $resolvedBy ? $resolvedBy->username : '' ;
+    $var->{'resolvedByUrl'    } = $resolvedBy ? $resolvedBy->getProfileUrl : 0 ;
+    $var->{'createdBy'        } = $createdBy->username;
+    $var->{'createdByUrl'     } = $createdBy->getProfileUrl;
     $var->{'creationDate'     } = $session->datetime->epochToSet($var->{'creationDate'});
     $var->{'dateAssigned'     } = $session->datetime->epochToSet($var->{'dateAssigned'});
     $var->{'isPrivate'        } = $self->isPrivate;
@@ -722,6 +734,27 @@ sub logHistory {
 
     $session->db->setRow("Ticket_history","historyId",$props);
 }
+
+#-------------------------------------------------------------------
+
+=head makeAnchorTag ( url, text, [ title ] )
+
+got tired of typing this over and over...
+
+=cut
+
+sub makeAnchorTag {
+    my $url = shift;
+    my $text = shift;
+    my $title = shift || '';
+
+    if( $title ne '' ) {
+        return q{<a href='} . $url . q{' title='} . $title . q{'>} . $text . '</a>';
+    } else {
+        return q{<a href='} . $url . q{'>} . $text . '</a>';
+    }
+}
+
 
 #-------------------------------------------------------------------
 
@@ -1973,6 +2006,9 @@ sub www_getComments {
     foreach my $comment (@{$var->{'comments_loop'}}) {
         my $rating = $comment->{rating} || "0";
         my ($date,$time) = split("~~~",$dt->epochToHuman($comment->{'date'},"%z~~~%Z"));
+        my $user = WebGUI::User->new($session,$comment->{'userId'});
+        $comment->{'userAlias'         } = $user->profileField('alias');
+        $comment->{'userUrl'           } = $user->getProfileUrl;
         $comment->{'date_formatted'    } = $date;
         $comment->{'time_formatted'    } = $time;
         $comment->{'datetime_formatted'} = $date." ".$time;
@@ -2103,14 +2139,20 @@ Gets the history to display on the view ticket page.
 sub www_getHistory {
     my $self      = shift;
     my $var       = {};
+    my $session = $self->session;
 
-    return $self->session->privilege->insufficient  unless $self->canView;
+    return $session->privilege->insufficient  unless $self->canView;
 
     #Get the comments
     $var->{'history_loop'} = $self->getHistory;
     
-    $self->session->http->setMimeType( 'text/html' );
-    $self->session->log->preventDebugOutput;
+    foreach my $history (@{$var->{'history_loop'}}) {
+        my $user = WebGUI::User->new($session,$history->{'history_userId'});
+        $history->{'userUrl'           } = $user->getProfileUrl;
+    }
+
+    $session->http->setMimeType( 'text/html' );
+    $session->log->preventDebugOutput;
     return $self->processTemplate(
         $var,
         $self->getParent->get("viewTicketHistoryTemplateId")
@@ -2360,6 +2402,7 @@ sub www_setAssignment {
     my $userId        = $session->user->getId;
     my $dateAssigned  = $session->datetime->time();
     my $username      = "unassigned";
+    my $linkedUsername = $username;
 
     #If assignedTo is unassigned, unset it so we remove the assignement in the db
     if($assignedTo eq "unassigned" ) {
@@ -2367,7 +2410,9 @@ sub www_setAssignment {
     }
     #Otherwise, let's get the username of the person who this is assigned to
     else {
-        $username = WebGUI::User->new($session,$assignedTo)->username;
+        my $user = WebGUI::User->new($session,$assignedTo);
+        $username = $user->username;
+        $linkedUsername = makeAnchorTag( $user->getProfileUrl, $username );
     }
 
     #Update the db
@@ -2417,10 +2462,11 @@ sub www_setAssignment {
 
     #Return the data
     $session->http->setMimeType( 'text/JSON' );
+    my $assignedByUser = WebGUI::User->new($session,$userId);
     return JSON->new->encode({
-        assignedTo   => $username,
+        assignedTo   => $linkedUsername,
         dateAssigned => $session->datetime->epochToSet($dateAssigned),
-        assignedBy   => WebGUI::User->new($session,$userId)->username,
+        assignedBy   => makeAnchorTag( $assignedByUser->getProfileUrl, $assignedByUser->username ),
     });
 }
 
