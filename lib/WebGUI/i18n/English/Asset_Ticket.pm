@@ -98,6 +98,26 @@ our $I18N = {
         lastUpdated => 0,
         context => q|Click here to change the value of the field|,
     },
+    'title required' => {
+        message => q{Title is a required field},
+        lastUpdated => 0,
+        context => q|This is an error message to remind the user to enter a title on the ticket|,
+    },
+    'synopsis required' => {
+        message => q{Description is a required field},
+        lastUpdated => 0,
+        context => q|This is an error message to remind the user to enter a description on the ticket|,
+    },
+    'close tab' => {
+                message => q|Close Tab|,
+                lastUpdated => 0,
+                context => q|label for link to close ticket tab in help desk main view|
+        },
+    'confirm and close' => {
+                message => q|Confirm and Close|,
+                lastUpdated => 0,
+                context => q|Label for 'confirm mand close' button.|
+        },
 #    'TODO' => {
 #        message => q{TODO},
 #        lastUpdated => 0,

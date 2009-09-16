@@ -140,76 +140,19 @@ WebGUI.Ticket.postComment = function (evt, obj) {
                         solutionSummary.innerHTML = response.solutionSummary;
                         WebGUI.Ticket.toggleSolutionRow(response.ticketStatus);
                         //Update ticket status if this was a post to change status
+                        if( response.ticketStatus != '' ) {
                             //Set ticket status as it may have been changed to pending after a comment was made
                             YAHOO.util.Dom.get("field_id_ticketStatus").innerHTML = response.ticketStatus;
-                            //Handle the corner case where someone who has status change privs clicks the change status button but then posts a regular comment
-                            var href = YAHOO.util.Dom.get("statusLink");
-                            if(href) {
-                                var button = YAHOO.util.Dom.getFirstChild(href);
-                                if(button.tagName == "INPUT") {
-                                    YAHOO.util.Event.removeListener(href,'click',WebGUI.Ticket.saveFieldValue);
-                                    WebGUI.Ticket.removeAllChildren(href);
-                                    var editButton = document.createElement("IMG");
-                                    editButton.setAttribute("src",WebGUI.Ticket.buttonSrc);
-                                    editButton.setAttribute("title","Change");
-                                    editButton.setAttribute("alt","Change");
-                                    YAHOO.util.Dom.setStyle(editButton,"border","0");
-                                    YAHOO.util.Dom.setStyle(editButton,"vertical-align","middle");
-                                    href.appendChild(editButton);
-                                    YAHOO.util.Event.addListener(href,'click',WebGUI.Ticket.loadField,{ fieldId : 'ticketStatus' });
-                                }
-                            }
+                        }
                             //History is rebuilt by the saveFieldValue method in the other condition
                             WebGUI.Ticket.rebuildHistory();
-                        var ticketStatus = response.ticketStatus.toLowerCase();
-                        //change the button text if the status is now resolved
-                        var commentsBtn = YAHOO.util.Dom.get("commentsBtn");
-                        if(ticketStatus == "resolved") {
-                            commentsBtn.setAttribute("value",WebGUI.HelpDesk.i18n.get("Asset_HelpDesk","reopen ticket"));
-                            if(WebGUI.Ticket.isOwner) {
-                                var commentsButtonDiv = YAHOO.util.Dom.get("commentsButton_div");
-                                //Add the close button if ticket is resolved and the user is the ticket owner and the closed button isn't already there
-                                var closeButton = YAHOO.util.Dom.get("closeBtn");
-                                if(closeButton == null) {
-                                    closeButton = document.createElement("INPUT");
-                                    closeButton.setAttribute("type","button");
-                                    closeButton.setAttribute("value",WebGUI.HelpDesk.i18n.get("Asset_HelpDesk","confirm and close"));
-                                    closeButton.setAttribute("name","closeBtn");
-                                    closeButton.id ="closeBtn";
-                                    YAHOO.util.Event.addListener(closeButton,"click", WebGUI.Ticket.postComment, { form : "commentsForm", close : true, closeBtn : closeButton });
-                                    commentsButtonDiv.appendChild(closeButton);
-                                }
-                                //Add the close ticket hidden field if it doesn't exist already
-                                var closeTicket = YAHOO.util.Dom.get("closeTicket");
-                                if(closeTicket == null) {
-                                    closeTicket = document.createElement("INPUT");
-                                    closeTicket.setAttribute("type","hidden");
-                                    closeTicket.setAttribute("name","close");
-                                    closeTicket.id = "closeTicket";
-                                    commentsButtonDiv.appendChild(closeTicket);
-                                }                                
-                            }
-                        }
-                        else {
-                            commentsBtn.value="Post";
-                            //The closed button isn't needed anymore since the ticket it closed so remove it.
-                            var closeBtn  = YAHOO.util.Dom.get("closeBtn");
-                            if(closeBtn) {
-                                var btnParent = closeBtn.parentNode;
-                                btnParent.removeChild(closeBtn);
-                            }
-                        }
-                        //reset the closeTicket field if it exists (that way tickets aren't repeatedly closed.)
-                        var closeField = YAHOO.util.Dom.get("closeTicket");
-                        if(closeField) {
-                            closeField.value="";    
-                        }
-                        //Easter Egg for plainblack.com
-                        WebGUI.Ticket.updateKarmaMessage(response.karmaLeft);
-                        YAHOO.util.Dom.get("commentsBtn").disabled = false;
+                        //  pass a blank status to the fix button function ... it will do the right thing
+                        WebGUI.Ticket.fixCommentPostButton('')
                     },
                     failure: function(o) {}
                 });
+		//Easter Egg for plainblack.com
+		WebGUI.Ticket.updateKarmaMessage(response.karmaLeft);
             }
         },
         failure: function(o) {}
@@ -316,7 +259,57 @@ WebGUI.Ticket.saveTicketStatus = function(target) {
         target.remove(0);
     }
     WebGUI.Ticket.saveInstantFieldValue(target,value);
+    WebGUI.Ticket.fixCommentPostButton(value)
 };
+//***********************************************************************************
+//  this function sets the label of the post comment button to re-open ticket
+//    and creates the close ticket button if appropriate
+    WebGUI.Ticket.fixCommentPostButton = function(ticketStatus) {
+                        //change the button text if the status is now resolved
+                        var commentsBtn = YAHOO.util.Dom.get("commentsBtn");
+                        if(ticketStatus == "resolved") {
+// TODO this should attach something else to be used as an indicator to the post comment function
+                            commentsBtn.setAttribute("value",WebGUI.HelpDesk.i18n.get("Asset_Ticket","reopen ticket"));
+                            if(WebGUI.Ticket.isOwner) {
+                                var commentsButtonDiv = YAHOO.util.Dom.get("commentsButton_div");
+                                //Add the close button if ticket is resolved and the user is the ticket owner and the closed button isn't already there
+                                var closeButton = YAHOO.util.Dom.get("closeBtn");
+                                if(closeButton == null) {
+                                    closeButton = document.createElement("INPUT");
+                                    closeButton.setAttribute("type","button");
+                                    closeButton.setAttribute("value",WebGUI.HelpDesk.i18n.get("Asset_Ticket","confirm and close"));
+                                    closeButton.setAttribute("name","closeBtn");
+                                    closeButton.id ="closeBtn";
+                                    YAHOO.util.Event.addListener(closeButton,"click", WebGUI.Ticket.postComment, { form : "commentsForm", close : true, closeBtn : closeButton });
+                                    commentsButtonDiv.appendChild(closeButton);
+                                }
+                                //Add the close ticket hidden field if it doesn't exist already
+                                var closeTicket = YAHOO.util.Dom.get("closeTicket");
+                                if(closeTicket == null) {
+                                    closeTicket = document.createElement("INPUT");
+                                    closeTicket.setAttribute("type","hidden");
+                                    closeTicket.setAttribute("name","close");
+                                    closeTicket.id = "closeTicket";
+                                    commentsButtonDiv.appendChild(closeTicket);
+                                }                                
+                            }
+                        }
+                        else {
+                            commentsBtn.value="Post";
+                            //The closed button isn't needed anymore since the ticket it closed so remove it.
+                            var closeBtn  = YAHOO.util.Dom.get("closeBtn");
+                            if(closeBtn) {
+                                var btnParent = closeBtn.parentNode;
+                                btnParent.removeChild(closeBtn);
+                            }
+                        }
+                        YAHOO.util.Dom.get("commentsBtn").disabled = false;
+                        //reset the closeTicket field if it exists (that way tickets aren't repeatedly closed.)
+                        var closeField = YAHOO.util.Dom.get("closeTicket");
+                        if(closeField) {
+                            closeField.value="";    
+                        }
+}
 //***********************************************************************************
 WebGUI.Ticket.saveFieldValue = function(o, obj) {
     var button     = null;
@@ -434,6 +427,7 @@ WebGUI.Ticket.showAssignDialog = function (o) {
 
 //***********************************************************************************
 //Function used to toggle the solution summary
+//  TODO this needs to be changed so that internationalization doesn't break it
 WebGUI.Ticket.toggleSolutionRow = function( ticketStatus ) {    
     if(ticketStatus.toLowerCase() == "closed" || ticketStatus.toLowerCase() == "resolved") {
         YAHOO.util.Dom.setStyle('solutionRow', 'display', '');

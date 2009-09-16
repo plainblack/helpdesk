@@ -1014,7 +1014,14 @@ sub processPropertiesFromFormPost {
     my $errors  = $self->SUPER::processPropertiesFromFormPost || [];
     my $assetId = $self->getId;
     my $parent  = $self->getParent;
+    my $i18n    = $self->i18n;
 
+    if( $form->process('title') eq '' ) {
+        push(@{$errors},$i18n->get('title required'));
+    }
+    if( $form->process('synopsis') eq '' ) {
+        push(@{$errors},$i18n->get('synopsis required'));
+    }
     #Process the meta data fields
     my @metadata = ();
     foreach my $field (@{$self->getParent->getHelpDeskMetaFields}) {
@@ -1402,6 +1409,37 @@ sub subscribe {
 
 #----------------------------------------------------------------------------
 
+=head ticketStatusEdit
+
+this function returns an AJAX editable field if the user can change the status
+
+=cut
+
+sub ticketStatusEdit {
+    my $self = shift;
+    my $session = $self->session;
+    my $parent = $self->getParent;
+    # if the user can change the status then send an editable field
+    if( $self->canChangeStatus ) {
+        my $status = $parent->getStatus;
+	my $value   = $self->get("ticketStatus");
+        delete $status->{pending} unless $value eq 'pending';
+        delete $status->{closed} unless $value eq 'closed';
+        delete $status->{feedback} if ! $session->user->isInGroup($parent->get('groupToChangeStatus'));
+        return WebGUI::Form::selectBox($session,{
+		name    =>"ticketStatus",
+                id      =>"ticketStatusAjaxEdit",
+		options => $status,
+		value   => $value,
+                extras  => q{class="dyn_form_field" onchange="WebGUI.Ticket.saveTicketStatus(this)"}
+	    });
+    } else {
+        return $self->getParent->getStatus($self->get("ticketStatus"));
+    }
+}
+
+#----------------------------------------------------------------------------
+
 =head2 transferKarma ( ) 
 
 Properly transfers karma to the ticket and subtracts it from the user.
@@ -1625,23 +1663,7 @@ sub view {
     $var->{'isOwner'                 } = $user->userId eq $self->get("ownerUserId");
     $var->{'ticketResolved'          } = $self->get("ticketStatus") eq "resolved";
     $var->{'ticketResolvedAndIsOwner'} = $var->{'ticketResolved'} && $var->{'isOwner'};
-
-    # if the user can change the status then send an editable field
-    # ( ticketStatus is set by getCommonDisplayVars )
-    if( $self->canChangeStatus ) {
-        my $status = $parent->getStatus;
-	my $value   = $self->get("ticketStatus");
-        delete $status->{pending} unless $value eq 'pending';
-        delete $status->{closed};
-        delete $status->{feedback} if ! $session->user->isInGroup($parent->get('groupToChangeStatus'));
-        $var->{'ticketStatus'} = WebGUI::Form::selectBox($session,{
-		name    =>"ticketStatus",
-                id      =>"ticketStatusAjaxEdit",
-		options => $status,
-		value   => $value,
-                extras  => q{class="dyn_form_field" onchange="WebGUI.Ticket.saveTicketStatus(this)"}
-	    });
-    }
+    $var->{'ticketStatus'            } = $self->ticketStatusEdit;
 
     #Process template for Related Files
     my $relatedFilesVars        = $self->getRelatedFilesVars($var->{'storageId'});
@@ -1766,7 +1788,7 @@ sub view {
             ticketText => $output,
             ticketId => $self->get('ticketId'),
         });
-        #$session->http->setMimeType( 'text/html' );
+        WebGUI::Macro::process( $session, \$output );
         $session->log->preventDebugOutput;
     } else {
         $session->http->setMimeType( 'text/html' );
@@ -2048,18 +2070,8 @@ sub www_getFormField {
         #Only users who can change the status should be returned the form field
         return $session->privilege->insufficient  unless $self->canChangeStatus;
         my $value   = $self->get("ticketStatus");
-        my $status = $parent->getStatus;
-        delete $status->{pending} unless $value eq 'pending';
-        delete $status->{closed};
-        delete $status->{feedback} if ! $session->user->isInGroup($parent->get('groupToChangeStatus'));
 
-        $htmlElement = WebGUI::Form::selectBox($session,{
-            name    =>"ticketStatus",
-	    id      =>"ticketStatusAjaxEdit",
-            options => $status,
-            value   => $value,
-            extras  => q{class="dyn_form_field" onchange="WebGUI.Ticket.saveTicketStatus(this)"}
-        });
+        $htmlElement = $self->ticketStatusEdit;
     }
     #Handle karma scale
     elsif($fieldId eq "karmaScale") {
@@ -2177,8 +2189,10 @@ sub www_postComment {
     return  $session->privilege->insufficient unless $user->isRegistered;
     my $i18n      = $self->i18n;
     my @errors    = ();
+    my $solution;
 
     #Negate Macros on the comment
+    $comment = WebGUI::HTML::filter($comment, 'all');
     $comment = WebGUI::HTML::format($comment, 'text');
     WebGUI::Macro::negate(\$comment) if($comment);
     #$session->log->warn("close button clicked?".$form->get("closeTicket"));
@@ -2199,14 +2213,10 @@ sub www_postComment {
     my $rating   = $form->process('rating','commentRating',"0", { defaultRating  => "0" });
 
     my $status = $form->get("setFormStatus");
-    
-    #Set the solution summary if it was posted
-    my $solution  = $form->process("solution","textarea");
+
     if( $status eq 'resolved' and $solution eq '' ) {
         $solution = $comment;
     }
-    $solution = WebGUI::HTML::format($solution, 'text');
-    WebGUI::Macro::negate(\$solution) if($solution);
 
     #Post the comment to the comments
     $self->postComment($comment,{
@@ -2217,9 +2227,6 @@ sub www_postComment {
         commentId    => $commentId,
     });
 
-    #Set the proper status to return
-    $status          = ($status) ? $status : $self->get("ticketStatus");
-    my $ticketStatus = $self->getParent->getStatus($status);
     my $avgRating    = $self->get("averageRating");
 
     #Return JSON to the page
@@ -2228,7 +2235,7 @@ sub www_postComment {
         averageRating      => sprintf("%.1f", $avgRating),
         averageRatingImage => $self->getAverageRatingImage($avgRating),
         solutionSummary    => $self->get("solutionSummary"),
-        ticketStatus       => $ticketStatus,
+        ticketStatus       => $self->ticketStatusEdit,
         karmaLeft          => $user->karma,
     });
 }
@@ -2296,8 +2303,6 @@ sub www_saveFormField {
         return $self->processErrors(\@errors) if(scalar(@errors));
         #Update the status
         $self->setStatus($value);
-        #Get the friendly name of the status
-        $value    = $parent->getStatus($value);
         #Get the user's current karma as this may have changed
         my $karma = $session->user->karma;
         #Return data
@@ -2328,6 +2333,7 @@ sub www_saveFormField {
             rating       => $rating,
             commentId    => $commentId,
         });
+        $comment =~ s/\n/ /g;
         return "{ value: '$comment', rating:'$rating'," .
                " ratingId: '$ratingId', ratingImage:'$ratingImage'}";
     }

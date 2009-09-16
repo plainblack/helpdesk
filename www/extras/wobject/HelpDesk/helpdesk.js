@@ -47,10 +47,13 @@ WebGUI.HelpDesk = function (configs) {
     ///////////////////////////////////////////////////////////////
     WebGUI.HelpDesk.i18n = new WebGUI.i18n( {
         namespaces : {
-            'Asset_HelpDesk' : [
+            'Asset_Ticket' : [
                 'confirm and close',
                 'reopen ticket',
                 'close tab'
+            ],
+            'Asset_HelpDesk' : [
+                ''
             ]
         }
 //        onpreload : {
