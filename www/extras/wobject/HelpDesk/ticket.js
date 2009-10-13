@@ -138,7 +138,7 @@ WebGUI.Ticket.postComment = function (evt, obj) {
                         YAHOO.util.Dom.setStyle("solutionSummary_div","display","none");
                         var solutionSummary       = YAHOO.util.Dom.get("solution");
                         solutionSummary.innerHTML = response.solutionSummary;
-                        WebGUI.Ticket.toggleSolutionRow(response.ticketStatus);
+                        WebGUI.Ticket.toggleSolutionRow();
                         //Update ticket status if this was a post to change status
                         if( response.ticketStatus != '' ) {
                             //Set ticket status as it may have been changed to pending after a comment was made
@@ -429,7 +429,9 @@ WebGUI.Ticket.showAssignDialog = function (o) {
 //Function used to toggle the solution summary
 //  TODO this needs to be changed so that internationalization doesn't break it
 WebGUI.Ticket.toggleSolutionRow = function( ticketStatus ) {    
-    if(ticketStatus.toLowerCase() == "closed" || ticketStatus.toLowerCase() == "resolved") {
+    var ticketStatus = YAHOO.util.Dom.get("ticketStatus_formId");
+    var status = ticketStatus.options[ticketStatus.selectedIndex];
+    if(status == "closed" || status == "resolved") {
         YAHOO.util.Dom.setStyle('solutionRow', 'display', '');
     }
     else {
@@ -438,7 +440,7 @@ WebGUI.Ticket.toggleSolutionRow = function( ticketStatus ) {
 };
 
 //***********************************************************************************
-//Function used to toggle the solution summary
+//Function used to toggle the subscription
 WebGUI.Ticket.toggleSubscription = function(evt) {
     var oCallback = {
         success: function(o) {

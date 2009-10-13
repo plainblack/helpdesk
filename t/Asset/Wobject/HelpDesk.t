@@ -62,6 +62,8 @@ is( scalar(keys %$mf), 0, "getHelpDeskMetaFields returns correct number of keys"
 TODO: {
         local $TODO = "need to perform login for this test";
 
+# TODO $session->user({userId => 3});
+
 $session->form->setup_body({
     fieldId => 'new',
     dataType => 'Date',
