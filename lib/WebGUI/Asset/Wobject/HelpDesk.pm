@@ -1006,7 +1006,7 @@ sub www_editHelpDeskMetaFieldSave {
 		label          => $form->process("label"),
 		dataType       => $fieldType,
 		searchable     => $searchable,
-		sortable       => $sortable,
+		#sortable       => $sortable,
         showInList      => $form->process("showInList","yesNo"),
 		required       => $form->process("required",'yesNo'),
 		possibleValues => $form->process("possibleValues",'textarea'),
