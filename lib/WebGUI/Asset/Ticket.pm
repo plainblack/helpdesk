@@ -756,33 +756,6 @@ sub makeAnchorTag {
     }
 }
 
-sub newForWorkflowActivity {
-    my $class         = shift;
-    my $session       = shift;
-    my $propertiesRef = shift;
-    my $assetId       = $propertiesRef->{'assetId'};
-    my $db            = $session->db;
-    $session->log->debug( "CLASS $class" );
-    $session->log->debug( "Asset ID $assetId" );
-
-    my $dataRef       = $db->quickHashRef( qq{
-        SELECT *
-        FROM Ticket
-        WHERE assetId = ?
-    }, [ $assetId ] );
-
-    my $parentId      = $db->quickScalar( qq{
-        SELECT parentId
-        FROM Ticket_searchIndex
-        WHERE assetId = ?
-    }, [ $assetId ] );
-
-    # Please note: At this point, meta data fields are not yet saved
-    return bless { _session => $session, _properties => {
-        %$dataRef, assetId => $assetId, parentId => $parentId
-    } }, $class;
-}
-
 #-------------------------------------------------------------------
 
 =head2 notifySubscribers ( props )
