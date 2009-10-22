@@ -577,9 +577,10 @@ sub getHelpDeskMetaFieldByLabel {
         SELECT *
         FROM HelpDesk_metaField
         WHERE label = ?
+        AND assetId = ?
     };
 
-    return $self->session->db->quickHashRef( $sql, [ $label ] );
+    return $self->session->db->quickHashRef( $sql, [ $label, $self->getId ] );
 }
 
 #------------------------------------------------------------------
