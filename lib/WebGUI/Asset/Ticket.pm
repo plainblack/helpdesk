@@ -19,6 +19,7 @@ use Tie::IxHash;
 use JSON;
 use base 'WebGUI::Asset';
 use WebGUI::Utility;
+use WebGUI::Workflow::Instance;
 
 my $ratingUrl       = "wobject/HelpDesk/rating/";
 
@@ -755,6 +756,32 @@ sub makeAnchorTag {
     }
 }
 
+sub newForWorkflowActivity {
+    my $class         = shift;
+    my $session       = shift;
+    my $propertiesRef = shift;
+    my $assetId       = $propertiesRef->{'assetId'};
+    my $db            = $session->db;
+    $session->log->debug( "CLASS $class" );
+    $session->log->debug( "Asset ID $assetId" );
+
+    my $dataRef       = $db->quickHashRef( qq{
+        SELECT *
+        FROM Ticket
+        WHERE assetId = ?
+    }, [ $assetId ] );
+
+    my $parentId      = $db->quickScalar( qq{
+        SELECT parentId
+        FROM Ticket_searchIndex
+        WHERE assetId = ?
+    }, [ $assetId ] );
+
+    # Please note: At this point, meta data fields are not yet saved
+    return bless { _session => $session, _properties => {
+        %$dataRef, assetId => $assetId, parentId => $parentId
+    } }, $class;
+}
 
 #-------------------------------------------------------------------
 
@@ -1070,6 +1097,21 @@ sub processPropertiesFromFormPost {
 
     #Request Autocommit
     $self->requestAutoCommit;
+
+    # kick off Run On New Ticket workflow
+    if ( $form->get('assetId') eq "new" ) {
+        if ( my $workflowId = $parent->get( 'runOnNewTicket' ) ) {
+            $session->log->debug( "Running workflow $workflowId" ); # temp debug
+            WebGUI::Workflow::Instance->create( $session, {
+                 workflowId => $workflowId,
+                 methodName => 'new',
+                 className  => 'WebGUI::Asset::Ticket',
+                 parameters => $assetId,
+                 priority   => 1,
+            } )->start;
+        }
+    }
+
     return undef;
 }
 

@@ -66,16 +66,20 @@ sub addChild {
     my $self        = shift;
     my $properties  = shift;
     my $fileClass   = 'WebGUI::Asset::Ticket';
-    
+    my $session     = $self->session;
+
     # Make sure we only add appropriate child classes
     unless($properties->{className} eq $fileClass) {
-        $self->session->errorHandler->security(
+        $session->errorHandler->security(
             "add a ".$properties->{className}." to a ".$self->get("className")
         );
         return undef;
     }
 
-    return $self->SUPER::addChild( $properties, @_ );
+    my $ticket = $self->SUPER::addChild( $properties, @_ );
+    return undef unless $ticket;
+
+    return $ticket;
 }
 
 #-------------------------------------------------------------------
@@ -483,6 +487,13 @@ sub definition {
 			label           => $i18n->echo("Close Tickets After"),
 			hoverHelp       => $i18n->echo("Resolved tickets get closed after this period of time"),            
         },
+            runOnNewTicket => {
+                fieldType  => 'workflow',
+                tab        => 'display',
+                noFormPost => 0,
+                hoverHelp  => $i18n->echo( 'Workflow to kick off after adding new ticket' ),
+                label      => $i18n->echo( 'Run on New Ticket' ),
+            },
 	);
 	push(@{$definition}, {
 		assetName=>$i18n->get('assetName'),
@@ -546,6 +557,29 @@ sub getHelpDeskMetaField {
     my $sql = "select * from HelpDesk_metaField where fieldId=?";
 
     return $self->session->db->quickHashRef($sql,[$fieldId]);
+}
+
+#------------------------------------------------------------------
+
+=head2 getHelpDeskMetaField (  )
+
+Returns a hashref of a single help desk meta field looked up by label
+
+=cut
+
+sub getHelpDeskMetaFieldByLabel {
+    my $self  = shift;
+    my $label = shift;
+
+    return {} unless $label;
+
+    my $sql = qq{
+        SELECT *
+        FROM HelpDesk_metaField
+        WHERE label = ?
+    };
+
+    return $self->session->db->quickHashRef( $sql, [ $label ] );
 }
 
 #------------------------------------------------------------------
