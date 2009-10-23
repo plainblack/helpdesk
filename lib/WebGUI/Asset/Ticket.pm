@@ -1074,7 +1074,6 @@ sub processPropertiesFromFormPost {
     # kick off Run On New Ticket workflow
     if ( $form->get('assetId') eq "new" ) {
         if ( my $workflowId = $parent->get( 'runOnNewTicket' ) ) {
-            $session->log->debug( "Running workflow $workflowId" ); # temp debug
             WebGUI::Workflow::Instance->create( $session, {
                  workflowId => $workflowId,
                  methodName => 'new',

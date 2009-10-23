@@ -568,10 +568,11 @@ Returns a hashref of a single help desk meta field looked up by label
 =cut
 
 sub getHelpDeskMetaFieldByLabel {
-    my $self  = shift;
-    my $label = shift;
+    my $self    = shift;
+    my $label   = shift;
+    my $assetId = $self->getId;
 
-    return {} unless $label;
+    return {} unless ( $label && $assetId );
 
     my $sql = qq{
         SELECT *
