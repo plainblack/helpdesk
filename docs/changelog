@@ -1,3 +1,6 @@
+October 15, 2009
+- Fixed an issue where editing and saving a meta field errors out.
+
 August 21, 2009
 - RFE 8804: use only one textbox to enter both comment and solution when resolving a ticket
 - betterment: made closing a helpdesk tab return the user to the tab they openet it from

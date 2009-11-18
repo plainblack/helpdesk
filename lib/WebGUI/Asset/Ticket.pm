@@ -19,6 +19,7 @@ use Tie::IxHash;
 use JSON;
 use base 'WebGUI::Asset';
 use WebGUI::Utility;
+use WebGUI::Workflow::Instance;
 
 my $ratingUrl       = "wobject/HelpDesk/rating/";
 
@@ -756,7 +757,6 @@ sub makeAnchorTag {
     }
 }
 
-
 #-------------------------------------------------------------------
 
 =head2 notifySubscribers ( props )
@@ -1071,6 +1071,20 @@ sub processPropertiesFromFormPost {
 
     #Request Autocommit
     $self->requestAutoCommit;
+
+    # kick off Run On New Ticket workflow
+    if ( $form->get('assetId') eq "new" ) {
+        if ( my $workflowId = $parent->get( 'runOnNewTicket' ) ) {
+            WebGUI::Workflow::Instance->create( $session, {
+                 workflowId => $workflowId,
+                 methodName => 'new',
+                 className  => 'WebGUI::Asset::Ticket',
+                 parameters => $assetId,
+                 priority   => 1,
+            } )->start;
+        }
+    }
+
     return undef;
 }
 
