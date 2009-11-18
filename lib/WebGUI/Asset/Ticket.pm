@@ -1443,7 +1443,7 @@ sub ticketStatusEdit {
         delete $status->{feedback} if ! $session->user->isInGroup($parent->get('groupToChangeStatus'));
         return WebGUI::Form::selectBox($session,{
 		name    =>"ticketStatus",
-                id      =>"ticketStatusAjaxEdit",
+                id      =>"ticketStatus_formId",
 		options => $status,
 		value   => $value,
                 extras  => q{class="dyn_form_field" onchange="WebGUI.Ticket.saveTicketStatus(this)"}
