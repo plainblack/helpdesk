@@ -75,6 +75,7 @@ sub canChangeStatus {
 }
 
 #-------------------------------------------------------------------
+
 =head2 canEdit
 
 Determine if the user has permission to edit the help desk ticket
@@ -737,7 +738,7 @@ sub logHistory {
 
 #-------------------------------------------------------------------
 
-=head makeAnchorTag ( url, text, [ title ] )
+=head2 makeAnchorTag ( url, text, [ title ] )
 
 got tired of typing this over and over...
 
@@ -1409,7 +1410,7 @@ sub subscribe {
 
 #----------------------------------------------------------------------------
 
-=head ticketStatusEdit
+=head3 ticketStatusEdit
 
 this function returns an AJAX editable field if the user can change the status
 
@@ -1582,6 +1583,7 @@ sub update {
 
 
 #-------------------------------------------------------------------
+
 =head2 view ( )
 
 method called by the container www_view method. 

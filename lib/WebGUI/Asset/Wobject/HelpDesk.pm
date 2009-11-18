@@ -1754,6 +1754,7 @@ sub www_subscribe {
 =head2 www_toggleSubscription ( ) 
 
 Subscribes or unsubscribes the user from the help desk returning the opposite text
+
 =cut
 
 sub www_toggleSubscription {

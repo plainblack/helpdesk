@@ -37,7 +37,7 @@ WebGUI.HelpDesk = function (configs) {
         this._configs = configs;
     }
 
-    if(!this._configs.initiRequestString) {
+    if(!this._configs.initRequestString) {
         this._configs.initRequestString = ';startIndex=0';
     }
 
