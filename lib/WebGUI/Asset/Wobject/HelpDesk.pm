@@ -561,7 +561,7 @@ sub getHelpDeskMetaField {
 
 #------------------------------------------------------------------
 
-=head2 getHelpDeskMetaField (  )
+=head2 getHelpDeskMetaFieldByLabel (  )
 
 Returns a hashref of a single help desk meta field looked up by label
 

@@ -110,10 +110,13 @@ WebGUI.Ticket.loadField = function(o, obj) {
 
 //***********************************************************************************
 WebGUI.Ticket.postComment = function (evt, obj) {
-    YAHOO.util.Dom.get("commentsBtn").disabled = true;
-    YAHOO.util.Dom.get("commentsBtn").value = "Submitting";
-    if(obj.closeBtn) {
-         obj.closeBtn.disabled = true;
+    var commentsBtn = YAHOO.util.Dom.get("commentsBtn");
+    var closeButton = YAHOO.util.Dom.get("closeBtn");
+    var commentsBtnValue = YAHOO.util.Dom.get("commentsBtn").value
+    commentsBtn.disabled = true;
+    commentsBtn.value = "Submitting";
+    if( closeButton ) {
+        closeButton.disabled = true;
     }
     var url        = WebGUI.Ticket.postCommentUrl;
     var oCallback = {
@@ -121,6 +124,11 @@ WebGUI.Ticket.postComment = function (evt, obj) {
             var response = eval('(' + o.responseText + ')');
             if(response.hasError){
                 alert(WebGUI.Ticket.processErrors(response.errors));
+	        commentsBtn.disabled = false;
+	        commentsBtn.value = commentsBtnValue;
+		if( closeButton ) {
+                    closeButton.disabled = false;
+		}
             }
             else {
                 YAHOO.util.Connect.asyncRequest('GET', WebGUI.Ticket.getCommentsUrl, {
@@ -134,25 +142,21 @@ WebGUI.Ticket.postComment = function (evt, obj) {
                         averageRatingImg.src   = response.averageRatingImage;
                         averageRatingImg.title = response.averageRating;
                         averageRatingImg.alt   = response.averageRating;
+		        //Set ticket status as it may have been changed to pending after a comment was made
+		        YAHOO.util.Dom.get("field_id_ticketStatus").innerHTML = response.ticketStatusField;
                         //Set the solution summary
-                        YAHOO.util.Dom.setStyle("solutionSummary_div","display","none");
+                        WebGUI.Ticket.toggleSolutionRow();
+                        //YAHOO.util.Dom.setStyle("solutionSummary_div","display","none");
                         var solutionSummary       = YAHOO.util.Dom.get("solution");
                         solutionSummary.innerHTML = response.solutionSummary;
-                        WebGUI.Ticket.toggleSolutionRow();
-                        //Update ticket status if this was a post to change status
-                        if( response.ticketStatus != '' ) {
-                            //Set ticket status as it may have been changed to pending after a comment was made
-                            YAHOO.util.Dom.get("field_id_ticketStatus").innerHTML = response.ticketStatus;
-                        }
-                            //History is rebuilt by the saveFieldValue method in the other condition
-                            WebGUI.Ticket.rebuildHistory();
-                        //  pass a blank status to the fix button function ... it will do the right thing
-                        WebGUI.Ticket.fixCommentPostButton('')
+                        //History is rebuilt by the saveFieldValue method in the other condition
+                        WebGUI.Ticket.rebuildHistory();
+                        WebGUI.Ticket.fixCommentPostButton(response.ticketStatus)
+		        //Easter Egg for plainblack.com
+		        WebGUI.Ticket.updateKarmaMessage(response.karmaLeft);
                     },
                     failure: function(o) {}
                 });
-		//Easter Egg for plainblack.com
-		WebGUI.Ticket.updateKarmaMessage(response.karmaLeft);
             }
         },
         failure: function(o) {}

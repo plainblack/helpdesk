@@ -2251,7 +2251,8 @@ sub www_postComment {
         averageRating      => sprintf("%.1f", $avgRating),
         averageRatingImage => $self->getAverageRatingImage($avgRating),
         solutionSummary    => $self->get("solutionSummary"),
-        ticketStatus       => $self->ticketStatusEdit,
+        ticketStatus       => $self->get('ticketStatus'),
+        ticketStatusField  => $self->ticketStatusEdit,
         karmaLeft          => $user->karma,
     });
 }
@@ -2322,6 +2323,7 @@ sub www_saveFormField {
         #Get the user's current karma as this may have changed
         my $karma = $session->user->karma;
         #Return data
+            # TODO this should return the whole html element incase there are changes...
         return "{ value:'$value', username:'$username', karmaLeft : '$karma' }";
     }
     #Handle karma scale posts

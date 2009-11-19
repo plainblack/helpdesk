@@ -16,8 +16,13 @@ use FindBin;
 use strict;
 use lib "$FindBin::Bin/../../lib";
 use Test::More;
+use Test::Deep;
+use HTML::Form;
+use JSON;
 use WebGUI::Test; # Must use this before any other WebGUI modules
 use WebGUI::Session;
+use WebGUI::Asset::Wobject::HelpDesk;
+use WebGUI::Asset::Ticket;
 
 #----------------------------------------------------------------------------
 # Init
@@ -32,37 +37,104 @@ WebGUI::Test->tagsToRollback($versionTag);
 #----------------------------------------------------------------------------
 # Tests
 
-plan tests => 8;        # Increment this number for each test you create
+plan tests => 21;        # Increment this number for each test you create
 
 #----------------------------------------------------------------------------
 # put your tests here   ( 4 tests )
 
-use_ok("WebGUI::Asset::Wobject::HelpDesk");
-use_ok("WebGUI::Asset::Ticket");
+$session->user({userId => 3});
+
 my $helpdesk = $node->addChild({
     className=>'WebGUI::Asset::Wobject::HelpDesk',
     title => 'test help desk',
          });
-#$versionTag->commit();
 isa_ok($helpdesk,'WebGUI::Asset::Wobject::HelpDesk');
+WebGUI::Test::assetsToPurge($helpdesk);
+is( $helpdesk->canEdit, 1, 'user can edit helpdesk');
+is( $helpdesk->canPost, 1, 'user can post comments in helpdesk');
+is( $helpdesk->canSubscribe, 1, 'user can subscribe to tickey update emails in helpdesk');
 
 my $ticket = $helpdesk->addChild({
     className=>'WebGUI::Asset::Ticket',
     title => 'a test ticket',
 });
 isa_ok($ticket,'WebGUI::Asset::Ticket');
+WebGUI::Test::assetsToPurge($ticket);
+
+$versionTag->commit();
+$versionTag = WebGUI::VersionTag->getWorking($session);
+$versionTag->set({name=>"HelpDesk Test"});
+WebGUI::Test->tagsToRollback($versionTag);
+
+isa_ok( my $group = $helpdesk->createSubscriptionGroup, 'WebGUI::Group');
+is( $helpdesk->getSubscriptionGroup->getId, $group->getId, 'getSubscriptionGroup matches createSubscriptionGroup');
+WebGUI::Test::groupsToDelete($group);
 
 #----------------------------------------------------------------------------
-# test meta fields   ( 3 tests )
+# test meta fields   ( 4 tests )
+
+    my $newId = $helpdesk->setCollateral("HelpDesk_metaField", "fieldId",{
+                fieldId        => 'new',
+                label          => 'MF1',
+                dataType       => 'Date',
+                searchable     => 0,
+                showInList      => 0,
+                required       => 0,
+                possibleValues => '',
+                defaultValues  => '',
+                hoverHelp      => '',
+        },1,1);
+
+my $mf1 = $helpdesk->getHelpDeskMetaField($newId);
+is($mf1->{label}, 'MF1', 'getHelpDeskMetaField tests OK');
+
+$mf1 = $helpdesk->getHelpDeskMetaFieldByLabel('MF1');
+is($mf1->{fieldId}, $newId, 'getHelpDeskMetaFieldByLabel tests OK');
 
 my $mf = $helpdesk->getHelpDeskMetaFields({returnHashRef => 1});
 isa_ok( $mf, 'HASH', "getHelpDeskMetaFields returns a HASH ref");
-is( scalar(keys %$mf), 0, "getHelpDeskMetaFields returns correct number of keys");
+is( scalar(keys %$mf), 1, "getHelpDeskMetaFields returns correct number of keys");
+is_deeply( [keys %$mf], [ $newId ], "getHelpDeskMetaFields returns the correct key");
+
+#----------------------
+use lib '/root/pb/lib'; use dav;
+
+isa_ok( $helpdesk->i18n, 'WebGUI::International' );
+
+$helpdesk->indexTickets; # no return value, TODO: can we test side effects?
+
+$helpdesk->commit;
+my $cron = WebGUI::Workflow::Cron->new($session, $helpdesk->get("getMailCronId"));
+isa_ok( $cron, 'WebGUI::Workflow::Cron');
+WebGUI::Test::workflowsToDelete($helpdesk->get('getMailCronId'));
+
+is( $helpdesk->isSubscribed, 0, 'isSubscribed returns 0');
+is( $helpdesk->karmaIsEnabled, 0, 'karma is not enabled');
+
+#----------------------
+
+my $expect = {
+        sort => "creationDate",
+        startIndex => 1,
+        totalRecords => 0,
+        tickets => [],
+        dir => 'DESC',
+        recordsReturned => 25
+    };
+
+my $actual = from_json($helpdesk->www_getAllTickets);
+dav::dump 'getAllTickets', $actual;
+cmp_deeply( $actual, $expect, 'test www_getAllTickets');
+
+#----------------------
+
+is( scalar( keys %{$helpdesk->getStatus}), 7, 'getStatus returns 7 items');
+isa_ok( $helpdesk->getSortDirs, 'HASH', 'getSortDirs returns a HASHREF' );
+isa_ok( $helpdesk->getSortOptions, 'HASH', 'getSortOptions returns a HASHREF' );
 
 TODO: {
-        local $TODO = "need to perform login for this test";
-
-# TODO $session->user({userId => 3});
+        local $TODO = "this test needs work";
+# EMSSubmissionForm does something similar to this and it works
 
 $session->form->setup_body({
     fieldId => 'new',
@@ -70,10 +142,14 @@ $session->form->setup_body({
     label => 'test metafield',
 });
 my $return_text = $helpdesk->www_editHelpDeskMetaFieldSave();
-#print $return_text;
-unlike( $return_text, '/error/i', "return from meta field save has no errors");
+
+$versionTag->commit();
+$versionTag = WebGUI::VersionTag->getWorking($session);
+$versionTag->set({name=>"HelpDesk Test"});
+WebGUI::Test->tagsToRollback($versionTag);
+
 $mf = $helpdesk->getHelpDeskMetaFields({returnHashRef => 1});
-is( scalar(keys %$mf), 1, "successfully added a new meta field");
+is( scalar(keys %$mf), 2, "successfully added a new meta field");
 
 }
 
