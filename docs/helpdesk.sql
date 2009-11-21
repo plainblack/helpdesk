@@ -36,6 +36,7 @@ CREATE TABLE HelpDesk (
     autoSubscribeToTicket TINYINT(4) NOT NULL default 1,
     requireSubscriptionForEmailPosting TINYINT(4) NOT NULL default 1,
     closeTicketsAfter integer not null default 1209600,
+    runOnNewTicket varchar(22) BINARY,
     PRIMARY KEY (assetId,revisionDate)
 );
 

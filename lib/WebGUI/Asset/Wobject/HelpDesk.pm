@@ -66,16 +66,20 @@ sub addChild {
     my $self        = shift;
     my $properties  = shift;
     my $fileClass   = 'WebGUI::Asset::Ticket';
-    
+    my $session     = $self->session;
+
     # Make sure we only add appropriate child classes
     unless($properties->{className} eq $fileClass) {
-        $self->session->errorHandler->security(
+        $session->errorHandler->security(
             "add a ".$properties->{className}." to a ".$self->get("className")
         );
         return undef;
     }
 
-    return $self->SUPER::addChild( $properties, @_ );
+    my $ticket = $self->SUPER::addChild( $properties, @_ );
+    return undef unless $ticket;
+
+    return $ticket;
 }
 
 #-------------------------------------------------------------------
@@ -483,6 +487,13 @@ sub definition {
 			label           => $i18n->echo("Close Tickets After"),
 			hoverHelp       => $i18n->echo("Resolved tickets get closed after this period of time"),            
         },
+            runOnNewTicket => {
+                fieldType  => 'workflow',
+                tab        => 'display',
+                noFormPost => 0,
+                hoverHelp  => $i18n->echo( 'Workflow to kick off after adding new ticket' ),
+                label      => $i18n->echo( 'Run on New Ticket' ),
+            },
 	);
 	push(@{$definition}, {
 		assetName=>$i18n->get('assetName'),
@@ -546,6 +557,31 @@ sub getHelpDeskMetaField {
     my $sql = "select * from HelpDesk_metaField where fieldId=?";
 
     return $self->session->db->quickHashRef($sql,[$fieldId]);
+}
+
+#------------------------------------------------------------------
+
+=head2 getHelpDeskMetaFieldByLabel (  )
+
+Returns a hashref of a single help desk meta field looked up by label
+
+=cut
+
+sub getHelpDeskMetaFieldByLabel {
+    my $self    = shift;
+    my $label   = shift;
+    my $assetId = $self->getId;
+
+    return {} unless ( $label && $assetId );
+
+    my $sql = qq{
+        SELECT *
+        FROM HelpDesk_metaField
+        WHERE label = ?
+        AND assetId = ?
+    };
+
+    return $self->session->db->quickHashRef( $sql, [ $label, $self->getId ] );
 }
 
 #------------------------------------------------------------------
@@ -1006,7 +1042,7 @@ sub www_editHelpDeskMetaFieldSave {
 		label          => $form->process("label"),
 		dataType       => $fieldType,
 		searchable     => $searchable,
-		sortable       => $sortable,
+		#sortable       => $sortable,
         showInList      => $form->process("showInList","yesNo"),
 		required       => $form->process("required",'yesNo'),
 		possibleValues => $form->process("possibleValues",'textarea'),
@@ -1364,7 +1400,7 @@ sub www_search {
     
     $var->{ 'form_start'     } 
         = WebGUI::Form::formHeader( $session, {
-            action  => $self->getUrl('func=searchTickets;action=search'),
+            action  => $self->getUrl('func=searchTickets;action=search;'),
             extras  => q{id="searchForm"}
         });
     $var->{ 'form_end'       } = WebGUI::Form::formFooter( $session );
@@ -1464,7 +1500,7 @@ sub www_search {
     $var->{'meta_loop'     } = \@metaFieldsLoop;
     $var->{'hasMetaFields' } = scalar(@metaFieldsLoop);
 
-    $var->{'url_pageData'  } = $self->getUrl('func=searchTickets');
+    $var->{'url_pageData'  } = $self->getUrl('func=searchTickets;');
 
     # Add meta fields
     my $metafields   = $self->getHelpDeskMetaFields({returnHashRef => 1});
@@ -1754,6 +1790,7 @@ sub www_subscribe {
 =head2 www_toggleSubscription ( ) 
 
 Subscribes or unsubscribes the user from the help desk returning the opposite text
+
 =cut
 
 sub www_toggleSubscription {

@@ -19,6 +19,7 @@ use Tie::IxHash;
 use JSON;
 use base 'WebGUI::Asset';
 use WebGUI::Utility;
+use WebGUI::Workflow::Instance;
 
 my $ratingUrl       = "wobject/HelpDesk/rating/";
 
@@ -75,6 +76,7 @@ sub canChangeStatus {
 }
 
 #-------------------------------------------------------------------
+
 =head2 canEdit
 
 Determine if the user has permission to edit the help desk ticket
@@ -379,23 +381,38 @@ sub getCommonDisplayVars {
     my $session = $self->session;
     my $parent  = $self->getParent;
     my $var     = $self->get;
+    my $ticketStatus;
+
+    my $createdBy=  WebGUI::User->new($session,$var->{'createdBy'});
 
     my $assignedTo= ($var->{'assignedTo'})
-        ? WebGUI::User->new($session,$var->{'assignedTo'})->username
-        : "unassigned"
+        ? WebGUI::User->new($session,$var->{'assignedTo'})
+        : undef
         ;
 
     my $assignedBy= ($var->{'assignedBy'})
-        ? WebGUI::User->new($session,$var->{'assignedBy'})->username
-        : ""
+        ? WebGUI::User->new($session,$var->{'assignedBy'})
+        : undef
         ;
     
+    my $resolvedBy= ($var->{'resolvedBy'})
+        ? WebGUI::User->new($session,$var->{'resolvedBy'})
+        : undef
+        ;
+    
+    $ticketStatus = $parent->getStatus($self->get("ticketStatus"));
+
     #Format Data for Display
-    $var->{'ticketStatus'     } = $parent->getStatus($self->get("ticketStatus"));
+    $var->{'ticketStatus'     } = $ticketStatus;
     $var->{'isAssigned'       } = $self->isAssigned;
-    $var->{'assignedTo'       } = $assignedTo;
-    $var->{'assignedBy'       } = $assignedBy;
-    $var->{'createdBy'        } = WebGUI::User->new($session,$var->{'createdBy'})->username;
+    $var->{'assignedTo'       } = $assignedTo ? $assignedTo->username : 'unassigned';
+    $var->{'assignedToUrl'    } = $assignedTo ? $assignedTo->getProfileUrl : 0 ;
+    $var->{'assignedBy'       } = $assignedBy ? $assignedBy->username : '' ;
+    $var->{'assignedByUrl'    } = $assignedBy ? $assignedBy->getProfileUrl : 0 ;
+    $var->{'resolvedBy'       } = $resolvedBy ? $resolvedBy->username : '' ;
+    $var->{'resolvedByUrl'    } = $resolvedBy ? $resolvedBy->getProfileUrl : 0 ;
+    $var->{'createdBy'        } = $createdBy->username;
+    $var->{'createdByUrl'     } = $createdBy->getProfileUrl;
     $var->{'creationDate'     } = $session->datetime->epochToSet($var->{'creationDate'});
     $var->{'dateAssigned'     } = $session->datetime->epochToSet($var->{'dateAssigned'});
     $var->{'isPrivate'        } = $self->isPrivate;
@@ -722,6 +739,26 @@ sub logHistory {
 
 #-------------------------------------------------------------------
 
+=head2 makeAnchorTag ( url, text, [ title ] )
+
+got tired of typing this over and over...
+
+=cut
+
+sub makeAnchorTag {
+    my $url = shift;
+    my $text = shift;
+    my $title = shift || '';
+
+    if( $title ne '' ) {
+        return q{<a href='} . $url . q{' title='} . $title . q{'>} . $text . '</a>';
+    } else {
+        return q{<a href='} . $url . q{'>} . $text . '</a>';
+    }
+}
+
+#-------------------------------------------------------------------
+
 =head2 notifySubscribers ( props )
 
 Send notifications to the help desk and ticket subscribers
@@ -978,7 +1015,14 @@ sub processPropertiesFromFormPost {
     my $errors  = $self->SUPER::processPropertiesFromFormPost || [];
     my $assetId = $self->getId;
     my $parent  = $self->getParent;
+    my $i18n    = $self->i18n;
 
+    if( $form->process('title') eq '' ) {
+        push(@{$errors},$i18n->get('title required'));
+    }
+    if( $form->process('synopsis') eq '' ) {
+        push(@{$errors},$i18n->get('synopsis required'));
+    }
     #Process the meta data fields
     my @metadata = ();
     foreach my $field (@{$self->getParent->getHelpDeskMetaFields}) {
@@ -1027,6 +1071,20 @@ sub processPropertiesFromFormPost {
 
     #Request Autocommit
     $self->requestAutoCommit;
+
+    # kick off Run On New Ticket workflow
+    if ( $form->get('assetId') eq "new" ) {
+        if ( my $workflowId = $parent->get( 'runOnNewTicket' ) ) {
+            WebGUI::Workflow::Instance->create( $session, {
+                 workflowId => $workflowId,
+                 methodName => 'new',
+                 className  => 'WebGUI::Asset::Ticket',
+                 parameters => $assetId,
+                 priority   => 1,
+            } )->start;
+        }
+    }
+
     return undef;
 }
 
@@ -1366,6 +1424,37 @@ sub subscribe {
 
 #----------------------------------------------------------------------------
 
+=head3 ticketStatusEdit
+
+this function returns an AJAX editable field if the user can change the status
+
+=cut
+
+sub ticketStatusEdit {
+    my $self = shift;
+    my $session = $self->session;
+    my $parent = $self->getParent;
+    # if the user can change the status then send an editable field
+    if( $self->canChangeStatus ) {
+        my $status = $parent->getStatus;
+	my $value   = $self->get("ticketStatus");
+        delete $status->{pending} unless $value eq 'pending';
+        delete $status->{closed} unless $value eq 'closed';
+        delete $status->{feedback} if ! $session->user->isInGroup($parent->get('groupToChangeStatus'));
+        return WebGUI::Form::selectBox($session,{
+		name    =>"ticketStatus",
+                id      =>"ticketStatus_formId",
+		options => $status,
+		value   => $value,
+                extras  => q{class="dyn_form_field" onchange="WebGUI.Ticket.saveTicketStatus(this)"}
+	    });
+    } else {
+        return $self->getParent->getStatus($self->get("ticketStatus"));
+    }
+}
+
+#----------------------------------------------------------------------------
+
 =head2 transferKarma ( ) 
 
 Properly transfers karma to the ticket and subtracts it from the user.
@@ -1508,6 +1597,7 @@ sub update {
 
 
 #-------------------------------------------------------------------
+
 =head2 view ( )
 
 method called by the container www_view method. 
@@ -1575,8 +1665,8 @@ sub view {
 
     #Icons
     $var->{'edit_icon_src'    } = $self->session->icon->getBaseURL()."edit.gif";
-    $var->{'edit_icon'        } = $self->getImageIcon('edit','Change');
-    $var->{'delete_icon'      } = $self->getImageIcon('delete');
+    $var->{'edit_icon'        } = $self->getImageIcon('edit',$i18n->get('change'));
+    $var->{'unassign_icon'    } = $self->getImageIcon('delete',$i18n->get('unassign'));
     
     #Send permissions to the tempalte
     $var->{'canPost'                 } = $self->canPost;
@@ -1589,6 +1679,7 @@ sub view {
     $var->{'isOwner'                 } = $user->userId eq $self->get("ownerUserId");
     $var->{'ticketResolved'          } = $self->get("ticketStatus") eq "resolved";
     $var->{'ticketResolvedAndIsOwner'} = $var->{'ticketResolved'} && $var->{'isOwner'};
+    $var->{'ticketStatus'            } = $self->ticketStatusEdit;
 
     #Process template for Related Files
     my $relatedFilesVars        = $self->getRelatedFilesVars($var->{'storageId'});
@@ -1613,7 +1704,16 @@ sub view {
     #Karma
     $var->{'useKarma'         } = $parent->karmaIsEnabled;
     $var->{'karma'            } = $self->get("karma") || 0;
-    $var->{'karmaScale'       } = $self->get("karmaScale");
+    if( $self->canEdit ) {
+        $var->{'karmaScale'} = WebGUI::Form::text($session,{
+			    name      => "karmaScale",
+			    value     => $self->get("karmaScale"),
+			    maxlength => "11",
+                            extras  => q{class="dyn_form_field" onchange="WebGUI.Ticket.saveKarmaScale(this)"}
+			})
+    } else {
+        $var->{'karmaScale'       } = $self->get("karmaScale");
+    }
     $var->{'karmaRank'        } = sprintf("%.2f",$self->get("karmaRank"));
     $var->{'hasKarma'         } = ($user->isRegistered && $user->karma > 0);
     
@@ -1704,7 +1804,8 @@ sub view {
             ticketText => $output,
             ticketId => $self->get('ticketId'),
         });
-        $session->http->setMimeType( 'text/html' );
+        WebGUI::Macro::process( $session, \$output );
+        $session->log->preventDebugOutput;
     } else {
         $session->http->setMimeType( 'text/html' );
        $output = $parent->processStyle($output),
@@ -1943,6 +2044,9 @@ sub www_getComments {
     foreach my $comment (@{$var->{'comments_loop'}}) {
         my $rating = $comment->{rating} || "0";
         my ($date,$time) = split("~~~",$dt->epochToHuman($comment->{'date'},"%z~~~%Z"));
+        my $user = WebGUI::User->new($session,$comment->{'userId'});
+        $comment->{'userAlias'         } = $user->profileField('alias');
+        $comment->{'userUrl'           } = $user->getProfileUrl;
         $comment->{'date_formatted'    } = $date;
         $comment->{'time_formatted'    } = $time;
         $comment->{'datetime_formatted'} = $date." ".$time;
@@ -1954,6 +2058,7 @@ sub www_getComments {
     }
     
     $session->http->setMimeType( 'text/html' );
+    $session->log->preventDebugOutput;
     return $self->processTemplate(
         $var,
         $parent->get("viewTicketCommentsTemplateId")
@@ -1980,16 +2085,9 @@ sub www_getFormField {
     if($fieldId eq "ticketStatus") {
         #Only users who can change the status should be returned the form field
         return $session->privilege->insufficient  unless $self->canChangeStatus;
-        my $status = $parent->getStatus;
-        delete $status->{pending};
-        delete $status->{closed};
+        my $value   = $self->get("ticketStatus");
 
-        $htmlElement = WebGUI::Form::selectBox($session,{
-            name    =>"ticketStatus",
-            options => $status,
-            value   => $self->get("ticketStatus"),
-            extras  => q{class="dyn_form_field"}
-        });
+        $htmlElement = $self->ticketStatusEdit;
     }
     #Handle karma scale
     elsif($fieldId eq "karmaScale") {
@@ -2054,6 +2152,7 @@ sub www_getFormField {
     #Return the output
     my $output = qq{<form id="form_$fieldId">$headtags $htmlElement<input type="hidden" name="fieldId" value="$fieldId"></form>};
     $session->http->setMimeType( 'text/html' );
+    $session->log->preventDebugOutput;
     return $output;
 }
 
@@ -2068,13 +2167,20 @@ Gets the history to display on the view ticket page.
 sub www_getHistory {
     my $self      = shift;
     my $var       = {};
+    my $session = $self->session;
 
-    return $self->session->privilege->insufficient  unless $self->canView;
+    return $session->privilege->insufficient  unless $self->canView;
 
     #Get the comments
     $var->{'history_loop'} = $self->getHistory;
     
-    $self->session->http->setMimeType( 'text/html' );
+    foreach my $history (@{$var->{'history_loop'}}) {
+        my $user = WebGUI::User->new($session,$history->{'history_userId'});
+        $history->{'userUrl'           } = $user->getProfileUrl;
+    }
+
+    $session->http->setMimeType( 'text/html' );
+    $session->log->preventDebugOutput;
     return $self->processTemplate(
         $var,
         $self->getParent->get("viewTicketHistoryTemplateId")
@@ -2099,8 +2205,10 @@ sub www_postComment {
     return  $session->privilege->insufficient unless $user->isRegistered;
     my $i18n      = $self->i18n;
     my @errors    = ();
+    my $solution;
 
     #Negate Macros on the comment
+    $comment = WebGUI::HTML::filter($comment, 'all');
     $comment = WebGUI::HTML::format($comment, 'text');
     WebGUI::Macro::negate(\$comment) if($comment);
     #$session->log->warn("close button clicked?".$form->get("closeTicket"));
@@ -2121,14 +2229,10 @@ sub www_postComment {
     my $rating   = $form->process('rating','commentRating',"0", { defaultRating  => "0" });
 
     my $status = $form->get("setFormStatus");
-    
-    #Set the solution summary if it was posted
-    my $solution  = $form->process("solution","textarea");
+
     if( $status eq 'resolved' and $solution eq '' ) {
         $solution = $comment;
     }
-    $solution = WebGUI::HTML::format($solution, 'text');
-    WebGUI::Macro::negate(\$solution) if($solution);
 
     #Post the comment to the comments
     $self->postComment($comment,{
@@ -2139,9 +2243,6 @@ sub www_postComment {
         commentId    => $commentId,
     });
 
-    #Set the proper status to return
-    $status          = ($status) ? $status : $self->get("ticketStatus");
-    my $ticketStatus = $self->getParent->getStatus($status);
     my $avgRating    = $self->get("averageRating");
 
     #Return JSON to the page
@@ -2150,7 +2251,8 @@ sub www_postComment {
         averageRating      => sprintf("%.1f", $avgRating),
         averageRatingImage => $self->getAverageRatingImage($avgRating),
         solutionSummary    => $self->get("solutionSummary"),
-        ticketStatus       => $ticketStatus,
+        ticketStatus       => $self->get('ticketStatus'),
+        ticketStatusField  => $self->ticketStatusEdit,
         karmaLeft          => $user->karma,
     });
 }
@@ -2200,6 +2302,7 @@ Saves the form field and returns the value.
 sub www_saveFormField {
     my $self      = shift;
     my $session   = $self->session;
+    my $form = $session->form;
     my $parent    = $self->getParent;
     my $fieldId   = $session->form->get("fieldId");
     my $username  = $session->user->username;
@@ -2211,23 +2314,22 @@ sub www_saveFormField {
     #Handle ticket status posts
     if($fieldId eq "ticketStatus") {
         #Get the value of the status
-        my $value     = $session->form->get("ticketStatus");
+        my $value     = $form->get("ticketStatus") || $form->get("value");
         #Check ticket status change permissions
         push(@errors,'ERROR: You do not have permission to change the status of this ticket') unless($self->canChangeStatus);
         return $self->processErrors(\@errors) if(scalar(@errors));
         #Update the status
         $self->setStatus($value);
-        #Get the friendly name of the status
-        $value    = $parent->getStatus($value);
         #Get the user's current karma as this may have changed
         my $karma = $session->user->karma;
         #Return data
+            # TODO this should return the whole html element incase there are changes...
         return "{ value:'$value', username:'$username', karmaLeft : '$karma' }";
     }
     #Handle karma scale posts
     elsif($fieldId eq "karmaScale") {
         #Get the value of the karma scale
-        my $value     = $session->form->get("karmaScale");
+        my $value     = $session->form->get("karmaScale") || $form->get("value");
         #Handle karma errors
         push(@errors,'ERROR: You do not have permission to change the difficulty of this ticket') unless($self->canEdit);
         push(@errors,'ERROR: Difficulty cannot be zero or empty') unless($value);
@@ -2249,7 +2351,7 @@ sub www_saveFormField {
             rating       => $rating,
             commentId    => $commentId,
         });
-        $comment =~ s/\n/<br>/g;
+        $comment =~ s/\n/ /g;
         return "{ value: '$comment', rating:'$rating'," .
                " ratingId: '$ratingId', ratingImage:'$ratingImage'}";
     }
@@ -2282,6 +2384,7 @@ sub www_saveFormField {
     };
 
     $value = WebGUI::Form::DynamicField->new($session,%{$props})->getValueAsHtml;
+    $session->log->preventDebugOutput;
 
     return "{ value:'$value', username:'$username' }";
 }
@@ -2322,6 +2425,7 @@ sub www_setAssignment {
     my $userId        = $session->user->getId;
     my $dateAssigned  = $session->datetime->time();
     my $username      = "unassigned";
+    my $linkedUsername = $username;
 
     #If assignedTo is unassigned, unset it so we remove the assignement in the db
     if($assignedTo eq "unassigned" ) {
@@ -2329,7 +2433,9 @@ sub www_setAssignment {
     }
     #Otherwise, let's get the username of the person who this is assigned to
     else {
-        $username = WebGUI::User->new($session,$assignedTo)->username;
+        my $user = WebGUI::User->new($session,$assignedTo);
+        $username = $user->username;
+        $linkedUsername = makeAnchorTag( $user->getProfileUrl, $username );
     }
 
     #Update the db
@@ -2379,10 +2485,11 @@ sub www_setAssignment {
 
     #Return the data
     $session->http->setMimeType( 'text/JSON' );
+    my $assignedByUser = WebGUI::User->new($session,$userId);
     return JSON->new->encode({
-        assignedTo   => $username,
+        assignedTo   => $linkedUsername,
         dateAssigned => $session->datetime->epochToSet($dateAssigned),
-        assignedBy   => WebGUI::User->new($session,$userId)->username,
+        assignedBy   => makeAnchorTag( $assignedByUser->getProfileUrl, $assignedByUser->username ),
     });
 }
 
@@ -2625,6 +2732,7 @@ sub www_userSearch {
     }
 
     $session->http->setMimeType( 'text/html' );
+    $session->log->preventDebugOutput;
     return $self->processTemplate(
         $var,
         $parent->get("viewTicketUserListTemplateId")

@@ -37,7 +37,7 @@ WebGUI.HelpDesk = function (configs) {
         this._configs = configs;
     }
 
-    if(!this._configs.initiRequestString) {
+    if(!this._configs.initRequestString) {
         this._configs.initRequestString = ';startIndex=0';
     }
 
@@ -47,10 +47,13 @@ WebGUI.HelpDesk = function (configs) {
     ///////////////////////////////////////////////////////////////
     WebGUI.HelpDesk.i18n = new WebGUI.i18n( {
         namespaces : {
-            'Asset_HelpDesk' : [
+            'Asset_Ticket' : [
                 'confirm and close',
                 'reopen ticket',
                 'close tab'
+            ],
+            'Asset_HelpDesk' : [
+                ''
             ]
         }
 //        onpreload : {
