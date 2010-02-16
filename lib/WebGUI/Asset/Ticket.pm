@@ -2208,7 +2208,7 @@ sub www_postComment {
     my $solution;
 
     #Negate Macros on the comment
-    $comment = WebGUI::HTML::filter($comment, 'all');
+    #$comment = WebGUI::HTML::filter($comment, 'all');
     $comment = WebGUI::HTML::format($comment, 'text');
     WebGUI::Macro::negate(\$comment) if($comment);
     #$session->log->warn("close button clicked?".$form->get("closeTicket"));
