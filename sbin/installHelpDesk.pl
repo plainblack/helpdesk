@@ -13,7 +13,10 @@ our ($webguiRoot, $configFile, $help, $man);
 
 BEGIN {
     $webguiRoot = "..";
+    $webguiRoot = '/data/WebGUI';
     unshift (@INC, $webguiRoot."/lib");
+    $helpdeskRoot = "..";
+    unshift (@INC, $helpdeskRoot."/lib");
 }
 
 use strict;
@@ -41,6 +44,7 @@ $session->config->set("assets/WebGUI::Asset::Wobject::HelpDesk/category", 'intra
 
 ### Add the Workflow Activities to the config file.
 $session->config->addToArray("workflowActivities/None", "WebGUI::Workflow::Activity::CloseResolvedTickets");
+$session->config->addToArray("workflowActivities/None", "WebGUI::Workflow::Activity::GetHelpDeskMail");
 
 ### Create a new workflow for running mail
 my $props = {
@@ -55,6 +59,7 @@ my $workflow = WebGUI::Workflow->create($session,$props,"hdworkflow000000000001"
 my $activity = $workflow->addActivity(
     "WebGUI::Workflow::Activity::GetHelpDeskMail",
     "hdactivity000000000001"
+    #1234567890123456789012
 );
 $activity->set("title","Get Mail");
 finish($session);

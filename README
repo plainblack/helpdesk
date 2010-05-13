@@ -1,0 +1,21 @@
+This is a bug tracking and user feedback Asset called the Helpdesk; a plugin for
+the WebGUI content management system.  It's currently in a late beta stage of
+development.
+
+ -------------------------------------------------------------------
+  WebGUI and the Helpdesk are Copyright 2001-2010 Plain Black Corporation.
+ -------------------------------------------------------------------
+  Please read the legal notices (docs/legal.txt) and the license
+  (docs/license.txt) that came with this distribution before using
+  this software.
+ -------------------------------------------------------------------
+  http://www.plainblack.com                     info@plainblack.com
+ -------------------------------------------------------------------
+
+To install this Asset in a WebGUI site:
+
+1) Download the helpdesk project and put it in /data/helpdesk
+2) echo /data/helpdesk/lib >> /data/WebGUI/sbin/preload.custom
+3) cd /data/helpdesk/sbin; perl installHelpdesk.pl --configFile=<your config file name>
+4) cp -R /data/helpdesk/www/extras /data/WebGUI/www
+5) Restart Apache and Spectre.  If you use the WRE, wreservice.pl --restart modperl spectre
