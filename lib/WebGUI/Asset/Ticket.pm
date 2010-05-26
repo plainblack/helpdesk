@@ -24,21 +24,6 @@ use WebGUI::Workflow::Instance;
 my $ratingUrl       = "wobject/HelpDesk/rating/";
 
 #-------------------------------------------------------------------
-
-=head2 addRevision
-
-   This method exists for demonstration purposes only.  The superclass
-   handles revisions to NewAsset Assets.
-
-=cut
-
-sub addRevision {
-	my $self = shift;
-	my $newSelf = $self->SUPER::addRevision(@_);
-	return $newSelf;
-}
-
-#-------------------------------------------------------------------
 sub canAdd {
     my $class   = shift;
     my $session = shift;
@@ -320,13 +305,6 @@ sub definition {
 	return $class->SUPER::definition($session, $definition);
 }
 
-
-#-------------------------------------------------------------------
-sub duplicate {
-	my $self = shift;
-	my $newAsset = $self->SUPER::duplicate(@_);
-	return $newAsset;
-}
 
 #-------------------------------------------------------------------
 sub get {
