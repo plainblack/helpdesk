@@ -1033,11 +1033,13 @@ sub processPropertiesFromFormPost {
     #This also inserts the record into the search index table
     # and updates metadata
     $self->update( {
-        url        => $session->url->urlize( join "/", $parent->get('url'), $ticketId ),
-        ticketId   => $ticketId,
-        karmaScale => $karmaScale,
-        karma      => $karma,
-	metadata   => [@metadata],
+        url           => $session->url->urlize( join "/", $parent->get('url'), $ticketId ),
+        ticketId      => $ticketId,
+        karmaScale    => $karmaScale,
+        karma         => $karma,
+        metadata      => [@metadata],
+        lastReplyDate => $self->get('lastModified'),
+        lastReplyBy   => $self->get('ownerUserId'),
     });
 
 

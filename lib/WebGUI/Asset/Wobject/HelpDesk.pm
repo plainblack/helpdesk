@@ -1172,14 +1172,13 @@ sub www_getAllTickets {
            $assignedTo = "unassigned";
         }
 
-        my $lastReplyById = $ticket->get("lastReplyBy") || $ticket->get('ownerUserId');
-	my $lastReplyBy;
-        if ($lastReplyById) {
-           $lastReplyBy = WebGUI::User->new($session,$lastReplyById)->username;
-        }
+        my $lastReplyById = $ticket->get("lastReplyBy");
+        my $lastReplyBy   = $lastReplyById
+                          ? WebGUI::User->new($session,$lastReplyById)->username
+                          : '';
 
         # Populate the required fields to fill in
-        my $lastReplyDate = $ticket->get("lastReplyDate") || $ticket->get('creationDate');
+        my $lastReplyDate = $ticket->get("lastReplyDate");
         if($lastReplyDate) {
             $lastReplyDate = $datetime->epochToHuman($lastReplyDate,"%y-%m-%d @ %H:%n %p");
         }
