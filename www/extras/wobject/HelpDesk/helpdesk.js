@@ -319,6 +319,7 @@ WebGUI.HelpDesk = function (configs) {
             this._configs.columns,
             datasource,
             {
+                generateRequest        : WebGUI.HelpDesk.buildQueryString,
                 initialRequest         : this._configs.initRequestString,
                 paginationEventHandler : WebGUI.HelpDesk.handlePagination,
                 paginator              : this.getPaginator(),
@@ -335,7 +336,6 @@ WebGUI.HelpDesk = function (configs) {
                oPayload.totalRecords = parseInt( oRes.meta.totalRecords );
                return oPayload;
         };
-        this.helpdesk.generateRequest = WebGUI.HelpDesk.buildQueryString;
         
         //Work around nested scoping for the callback
         var myHelpdesk = this.helpdesk;
@@ -372,7 +372,7 @@ WebGUI.HelpDesk.formatLastReply = function ( elCell, oRecord, oColumn, orderNumb
 
 //***********************************************************************************
 WebGUI.HelpDesk.buildQueryString = function ( state, dt ) {
-    var query = ";startIndex=" + state.pagination.startIndex 
+    var query = ";startIndex=" + ( state.pagination.startIndex ? state.pagination.startIndex : "0" )
         + ';orderByDirection=' + ((state.sortedBy.dir === DataTable.CLASS_ASC) ? "ASC" : "DESC")
         + ';rowsPerPage=' + state.pagination.rowsPerPage
         + ';orderByColumn=' + state.sortedBy.key
