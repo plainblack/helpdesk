@@ -111,7 +111,6 @@ WebGUI.HelpDesk = function (configs) {
                 rowsPerPage: state.rowsPerPage // Return the proper rows per page
             }
         };
-
         // Create callback object for the request
         var oCallback = {
             success: dt.onDataReturnSetRows,
@@ -312,7 +311,6 @@ WebGUI.HelpDesk = function (configs) {
             fields      : this._configs.fields,
             metaFields  : { totalRecords: 'totalRecords' }
         };
-
         // Initialize the data table
         this.helpdesk = new DataTable(
             this._configs.dtContainer,
@@ -372,7 +370,10 @@ WebGUI.HelpDesk.formatLastReply = function ( elCell, oRecord, oColumn, orderNumb
 
 //***********************************************************************************
 WebGUI.HelpDesk.buildQueryString = function ( state, dt ) {
-    var query = ";startIndex=" + ( state.pagination.startIndex ? state.pagination.startIndex : "0" )
+    if(dt.getContainerEl().id == "searchHelpDesk") {
+        return WebGUI.HelpDesk.buildSearchQueryString(state,dt);
+    } 
+    var query = ";startIndex=" + state.pagination.recordOffset
         + ';orderByDirection=' + ((state.sortedBy.dir === DataTable.CLASS_ASC) ? "ASC" : "DESC")
         + ';rowsPerPage=' + state.pagination.rowsPerPage
         + ';orderByColumn=' + state.sortedBy.key
