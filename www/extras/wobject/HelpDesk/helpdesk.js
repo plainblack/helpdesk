@@ -372,11 +372,11 @@ WebGUI.HelpDesk.formatLastReply = function ( elCell, oRecord, oColumn, orderNumb
 WebGUI.HelpDesk.buildQueryString = function ( state, dt ) {
     if(dt.getContainerEl().id == "searchHelpDesk") {
         return WebGUI.HelpDesk.buildSearchQueryString(state,dt);
-    } 
+    }
     var query = ";startIndex=" + state.pagination.recordOffset
-        + ';orderByDirection=' + ((state.sortedBy.dir === DataTable.CLASS_ASC) ? "ASC" : "DESC")
+        + ';orderByDirection=' + ((state.sorting != null && state.sorting.dir === DataTable.CLASS_ASC) ? "ASC" : "DESC") 
         + ';rowsPerPage=' + state.pagination.rowsPerPage
-        + ';orderByColumn=' + state.sortedBy.key
+        + ';orderByColumn=' + ((state.sorting != null) ? state.sorting.key : dt.get("sortedBy").key) 
         ;
     return query;
 };
