@@ -1255,7 +1255,7 @@ sub www_manageHelpDeskMetaFields {
 	my $numberOfFields  = scalar(@{$metadataFields});
     
     my $deleteMsg  = $i18n->echo('Are you certain you want to delete this metadata field?  The metadata values for this field will be deleted from all events.');
-    my $pageUrl    = $self->getUrl;
+    my $pageUrl    = $self->get("url");
 
     my @fieldsLoop = ();
     foreach my $row (@{$metadataFields}) {
