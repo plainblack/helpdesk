@@ -1951,9 +1951,10 @@ sub www_edit {
     my @metaFieldsLoop = ();
     foreach my $field (@{$parent->getHelpDeskMetaFields}) {
         my $fieldId = $field->{fieldId};
+        my $name    = "field_$fieldId";
         my $props = {
-            name         => "field_".$fieldId,
-			value        => $metadata->{$fieldId},
+            name         => $name,
+			value        => scalar($metadata->{$fieldId} || $form->get($name)),
 			defaultValue => $field->{defaultValues},
 			options	     => $field->{possibleValues},
             fieldType    => $field->{dataType},
