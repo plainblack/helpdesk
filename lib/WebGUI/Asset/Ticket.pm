@@ -1464,7 +1464,7 @@ sub transferKarma {
     $session->user->karma(-$amount,$self->getId,"Transferring karma to a ticket.");
 
     #Log the change in karma
-    $self->logHistory("$amount karma transfered");
+    $self->logHistory("$amount karma transferred");
 
     return 1;
 }
@@ -2557,7 +2557,7 @@ sub www_transferKarma {
     $session->http->setMimeType( 'application/json' );
    
     unless ($karma > 0) {
-        push(@errors,'You have not entered any karma to be transfered');
+        push(@errors,'You have not entered any karma to be transferred');
     }
     unless ($self->hasKarma($karma)) {
         push(@errors,qq{You do not have enough karma to transfer $karma karma to this ticket});
