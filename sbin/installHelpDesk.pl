@@ -12,7 +12,6 @@ $|++; # disable output buffering
 our ($webguiRoot, $configFile, $help, $man);
 
 BEGIN {
-    $webguiRoot = "..";
     $webguiRoot = '/data/WebGUI';
     unshift (@INC, $webguiRoot."/lib");
     $helpdeskRoot = "..";
