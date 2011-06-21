@@ -12,12 +12,296 @@ $VERSION = "1.0.0";
 # http://www.plainblack.com                     info@plainblack.com
 #-------------------------------------------------------------------
 
-use strict;
+use Moose;
 use Tie::IxHash;
+use WebGUI::Definition::Asset;
+extends 'WebGUI::Asset::Wobject';
 use WebGUI::International;
-use WebGUI::Utility;
 use JSON;
-use base 'WebGUI::Asset::Wobject';
+
+define assetName => ['assetName', 'Asset_HelpDesk'];
+define tableName => 'HelpDesk';
+
+property sortColumn => (
+    fieldType    => "selectBox",
+    options      => sub { shift->getSortOptions },
+    defaultValue => 'creationDate',
+    tab          => "display",
+    hoverHelp    => 'Choose how you would like the tickets in this help desk to be sorted',
+    label        => 'Sort Column',
+);
+property sortOrder => (
+    fieldType    => "selectBox",
+    options      => sub { shift->getSortDirs },
+    defaultValue => 'DESC',
+    tab          => "display",
+    hoverHelp    => 'Choose the direction you would like to sort the columns',
+    label        => 'Sort Direction',
+);
+property viewTemplateId => (
+    fieldType    => "template",
+    defaultValue => 'HELPDESK00000000000001',
+    tab          => "display",
+    namespace    => "HelpDesk/view",
+    hoverHelp =>
+        'Choose the template to use for the main view which is the tab wrapper of the other views',
+    label => 'Main View Template',
+);
+property viewMyTemplateId => (
+    fieldType    => "template",
+    defaultValue => 'HELPDESK00000000000002',
+    tab          => "display",
+    namespace    => "HelpDesk/myView",
+    hoverHelp    => 
+        'Choose the template to use for the my view which is the global contents of all tickets assigned to the current user',
+    label => 'My View Template',
+);
+property viewAllTemplateId => (
+    fieldType    => "template",
+    defaultValue => 'HELPDESK00000000000003',
+    tab          => "display",
+    namespace    => "HelpDesk/viewAll",
+    hoverHelp    => 
+        'Choose the template to use for the all view which displays all of the tickets local to this asset',
+    label => 'View All Template',
+);
+property searchTemplateId => (
+    fieldType    => "template",
+    defaultValue => 'HELPDESK00000000000004',
+    tab          => "display",
+    namespace    => "HelpDesk/search",
+    hoverHelp =>
+        'Choose the template to use for the search tab which allows users to search for and find tickets',
+    label => 'Search Template',
+);
+property manageMetaTemplateId => (
+    fieldType    => "template",
+    defaultValue => 'HELPDESK00000000000005',
+    tab          => "display",
+    namespace    => "HelpDesk/manageMeta",
+    hoverHelp    => 'Choose the template to use for managing help desk meta data',
+    label        => 'Manage Meta Data Template',
+);
+property editMetaFieldTemplateId => (
+    fieldType    => "template",
+    defaultValue => 'HELPDESK00000000000006',
+    tab          => "display",
+    namespace    => "HelpDesk/editMetaField",
+    hoverHelp    => 'Choose the template to use for editing help desk meta fields',
+    label        => 'Edit Meta Field Template',
+);
+property notificationTemplateId => (
+    fieldType    => "template",
+    defaultValue => 'HELPDESK00000000000007',
+    tab          => "display",
+    namespace    => "HelpDesk/notify",
+    hoverHelp    => 'Choose the template to use for sending email',
+    label        => 'Notification Tempalte',
+);
+property editTicketTemplateId => (
+    fieldType    => "template",
+    defaultValue => 'TICKET0000000000000001',
+    tab          => "display",
+    namespace    => "Ticket/edit",
+    hoverHelp    => 'Choose the template to use for editing a ticket',
+    label        => 'Edit Ticket Template',
+);
+property viewTicketTemplateId => (
+    fieldType    => "template",
+    defaultValue => 'TICKET0000000000000002',
+    tab          => "display",
+    namespace    => "Ticket/view",
+    hoverHelp    => 'Choose the template to use for the main view of a ticket',
+    label        => 'View Ticket Template',
+);
+property viewTicketRelatedFilesTemplateId => (
+    fieldType    => "template",
+    defaultValue => 'TICKET0000000000000003',
+    tab          => "display",
+    namespace    => "Ticket/relatedFiles",
+    hoverHelp    => 'Choose the template to use for displaying related files when viewing a ticket',
+    label        => 'Related Files for View Ticket Template',
+);
+property viewTicketUserListTemplateId => (
+    fieldType    => "template",
+    defaultValue => 'TICKET0000000000000004',
+    tab          => "display",
+    namespace    => "Ticket/userList",
+    hoverHelp =>
+        'Choose the template to use for displaying the list of users when assigning a ticket to a user',
+    label => 'User List for View Ticket Template',
+);
+property viewTicketCommentsTemplateId => (
+    fieldType    => "template",
+    defaultValue => 'TICKET0000000000000005',
+    tab          => "display",
+    namespace    => "Ticket/comments",
+    hoverHelp    => 'Choose the template to use for displaying the comments when viewing a ticket',
+    label        => 'Comments for View Ticket Template',
+);
+property viewTicketHistoryTemplateId => (
+    fieldType    => "template",
+    defaultValue => 'TICKET0000000000000006',
+    tab          => "display",
+    namespace    => "Ticket/history",
+    hoverHelp    => 'Choose the template to use for displaying the history when viewing a ticket',
+    label        => 'History for View Ticket Template',
+);
+property groupToPost => (
+    tab          => "security",
+    fieldType    => "group",
+    defaultValue => 2,                                                                         # Registered Users
+    label        => "Who can post?",
+    hoverHelp    => "Choose the group of users that can post bugs to the list",
+);
+property groupToChangeStatus => (
+    tab          => "security",
+    fieldType    => "group",
+    defaultValue => 3,                                                                         # Admins
+    label        => "Who can change status?",
+    hoverHelp    => 
+        "Choose the group of users that can change the status of a bug.  By default the user assigned to the ticket and users who can edit the help desk will already have this privilege.  This is an additional group that can work on tickets",
+);
+property richEditIdPost => (
+    tab          => "display",
+    fieldType    => "selectRichEditor",
+    defaultValue => "PBrichedit000000000002",                                                  # Forum Rich Editor
+    label        => "Post Rich Editor",
+    hoverHelp    => "Choose the rich editor to use for posting",
+);
+property karmaEnabled => (
+    tab          => "properties",
+    fieldType    => "yesNo",
+    defaultValue => 0,
+    visible      => sub { shift->session->setting->get('useKarma') },
+    label        => "Enable Karma",
+    hoverHelp    => 
+        "This enabled or disables karma and is used to determine whether or not to enable the karma settings on this HelpDesk",
+);
+property defaultKarmaScale => (
+    tab          => "properties",
+    fieldType    => "integer",
+    defaultValue => 1,
+    visible      => sub { shift->session->setting->get('useKarma') },
+    label        => "Default Karma Scale",
+    hoverHelp    => 
+        "This is the default value that will be assigned to the karma scale field in threads. Karma scale is a weighting mechanism for karma sorting that can be used for handicaps, difficulty, etc.",
+);
+property karmaPerPost => (
+    tab          => "properties",
+    fieldType    => "integer",
+    defaultValue => 0,
+    visible      => sub { shift->session->setting->get('useKarma') },
+    label        => "Karma Per Post",
+    hoverHelp    => "Enter the amount of karma that should be given each time a user posts a comment",
+);
+property karmaToClose => (
+    tab          => "properties",
+    fieldType    => "integer",
+    defaultValue => 0,
+    visible      => sub { shift->session->setting->get('useKarma') },
+    label        => "Karma To Close",
+    hoverHelp    => 
+        "Enter the amount of karma that should be given to the person assigned to the ticket once it is closed",
+);
+property subscriptionGroup => (
+    fieldType    => "subscriptionGroup",
+    tab          => 'security',
+    label        => "Subscription Group",
+    hoverHelp    => "The group that users subscribed to this help desk are members of",
+    noFormPost   => 1,
+    defaultValue => undef,
+);
+property approvalWorkflow => (
+    fieldType    => "workflow",
+    defaultValue => "pbworkflow000000000003",
+    type         => 'WebGUI::VersionTag',
+    tab          => 'security',
+    label        => ['approval workflow','Asset_HelpDesk'],
+    hoverHelp    => ['approval workflow description','Asset_HelpDesk'],
+);
+property autoSubscribeToTicket => (
+    fieldType    => "yesNo",
+    defaultValue => 1,
+    tab          => 'mail',
+    label        => ["auto subscribe to ticket",'Asset_HelpDesk'],
+    hoverHelp    => ["auto subscribe to ticket help",'Asset_HelpDesk'],
+);
+property requireSubscriptionForEmailPosting => (
+    fieldType    => "yesNo",
+    defaultValue => 1,
+    tab          => 'mail',
+    label        => ["require subscription for email posting",'Asset_HelpDesk'],
+    hoverHelp    => ["require subscription for email posting help",'Asset_HelpDesk'],
+);
+property mailServer => (
+    fieldType    => "text",
+    defaultValue => undef,
+    tab          => 'mail',
+    label        => ["mail server",'Asset_HelpDesk'],
+    hoverHelp    => ["mail server help",'Asset_HelpDesk'],
+);
+property mailAccount => (
+    fieldType    => "text",
+    defaultValue => undef,
+    tab          => 'mail',
+    label        => ["mail account",'Asset_HelpDesk'],
+    hoverHelp    => ["mail account help",'Asset_HelpDesk'],
+);
+property mailPassword => (
+    fieldType    => "password",
+    defaultValue => undef,
+    tab          => 'mail',
+    label        => ["mail password",'Asset_HelpDesk'],
+    hoverHelp    => ["mail password help",'Asset_HelpDesk'],
+);
+property mailAddress => (
+    fieldType    => "email",
+    defaultValue => undef,
+    tab          => 'mail',
+    label        => ["mail address",'Asset_HelpDesk'],
+    hoverHelp    => ["mail address help",'Asset_HelpDesk'],
+);
+property mailPrefix => (
+    fieldType    => "text",
+    defaultValue => undef,
+    tab          => 'mail',
+    label        => ["mail prefix",'Asset_HelpDesk'],
+    hoverHelp    => ["mail prefix help",'Asset_HelpDesk'],
+);
+property getMailCronId => (
+    fieldType    => "hidden",
+    defaultValue => undef,
+    noFormPost   => 1
+);
+property getMail => (
+    fieldType    => "yesNo",
+    defaultValue => 0,
+    tab          => 'mail',
+    label        => ["get mail",'Asset_HelpDesk'],
+    hoverHelp    => ["get mail help",'Asset_HelpDesk'],
+);
+property getMailInterval => (
+    fieldType    => "interval",
+    defaultValue => 300,
+    tab          => 'mail',
+    label        => ["get mail interval",'Asset_HelpDesk'],
+    hoverHelp    => ["get mail interval help",'Asset_HelpDesk'],
+);
+property closeTicketsAfter => (
+    fieldType    => "interval",
+    defaultValue => 1209600,
+    tab          => 'properties',
+    label        => "Close Tickets After",
+    hoverHelp    => "Resolved tickets get closed after this period of time",
+);
+property runOnNewTicket => (
+    fieldType  => 'workflow',
+    tab        => 'display',
+    noFormPost => 0,
+    hoverHelp  => 'Workflow to kick off after adding new ticket',
+    label      => 'Run on New Ticket',
+);
 
 #-------------------------------------------------------------------
 sub _getUsersHash {
@@ -46,7 +330,7 @@ sub _getUsersHash {
         order by username
     };
 
-    %hash = $db->buildHash($sql,[$self->get("lineage")."%"]);
+    %hash = $db->buildHash($sql,[$self->lineage."%"]);
     %hash = (%{$defaults},%hash);
 
     return \%hash;
@@ -71,7 +355,7 @@ sub addChild {
     # Make sure we only add appropriate child classes
     unless($properties->{className} eq $fileClass) {
         $session->errorHandler->security(
-            "add a ".$properties->{className}." to a ".$self->get("className")
+            "add a ".$properties->{className}." to a ".$self->className
         );
         return undef;
     }
@@ -160,13 +444,13 @@ sub commit {
     $self->SUPER::commit;
     
     #Handle setting up the cron job
-    if ($self->get("getMailCronId")) {
-        $cron = WebGUI::Workflow::Cron->new($self->session, $self->get("getMailCronId"));
+    if ($self->getMailCronId) {
+        $cron = WebGUI::Workflow::Cron->new($self->session, $self->getMailCronId);
     }
     unless (defined $cron) {
         $cron = WebGUI::Workflow::Cron->create($self->session, {
             title        =>$self->getTitle." ".$i18n->echo("Mail"),
-            minuteOfHour =>"*/".($self->get("getMailInterval")/60),
+            minuteOfHour =>"*/".($self->getMailInterval/60),
             className    =>(ref $self),
             methodName   =>"new",
             parameters=>$self->getId,
@@ -175,18 +459,18 @@ sub commit {
         $self->update({ getMailCronId => $cron->getId });
     }
     
-    if ($self->get("getMail")) {
+    if ($self->getMail) {
         $cron->set({
             enabled=>1,
             title=>$self->getTitle." ".$i18n->get("mail"),
-            minuteOfHour=>"*/".($self->get("getMailInterval")/60)
+            minuteOfHour=>"*/".($self->getMailInterval/60)
         });
     }
     else {
         $cron->set({
             enabled=>0,
             title=>$self->getTitle." ".$i18n->get("mail"),
-            minuteOfHour=>"*/".($self->get("getMailInterval")/60)
+            minuteOfHour=>"*/".($self->getMailInterval/60)
         });
     }
 }
@@ -209,317 +493,6 @@ sub createSubscriptionGroup {
         subscriptionGroup=>$group->getId
 	});
     return $group;
-}
-
-#-------------------------------------------------------------------
-sub definition {
-	my $class      = shift;
-	my $session    = shift;
-	my $definition = shift;
-	my $i18n       = WebGUI::International->new($session, "Asset_HelpDesk");
-    my $useKarma   = $session->setting->get('useKarma');
-
-
-	my %properties;
-	tie %properties, 'Tie::IxHash';
-	%properties = (
-        sortColumn =>{
-            fieldType      => "selectBox",
-            options        => $class->getSortOptions,
-			defaultValue   => 'creationDate',
-			tab            => "display",
-			hoverHelp      => $i18n->echo('Choose how you would like the tickets in this help desk to be sorted'),
-			label          => $i18n->echo('Sort Column'),
-        },
-        sortOrder  =>{
-            fieldType      => "selectBox",
-            options        => $class->getSortDirs,
-			defaultValue   => 'DESC',
-			tab            => "display",
-			hoverHelp      => $i18n->echo('Choose the direction you would like to sort the columns'),
-			label          => $i18n->echo('Sort Direction'),
-        },
-		viewTemplateId =>{
-            fieldType      => "template",  
-			defaultValue   => 'HELPDESK00000000000001',
-			tab            => "display",
-			namespace      => "HelpDesk/view", 
-			hoverHelp      => $i18n->echo('Choose the template to use for the main view which is the tab wrapper of the other views'),
-			label          => $i18n->echo('Main View Template'),
-		},
-        viewMyTemplateId =>{
-            fieldType      => "template",  
-			defaultValue   => 'HELPDESK00000000000002',
-			tab            => "display",
-			namespace      => "HelpDesk/myView", 
-			hoverHelp      => $i18n->echo('Choose the template to use for the my view which is the global contents of all tickets assigned to the current user'),
-			label          => $i18n->echo('My View Template'),
-		},
-        viewAllTemplateId =>{
-            fieldType      => "template",  
-			defaultValue   => 'HELPDESK00000000000003',
-			tab            => "display",
-			namespace      => "HelpDesk/viewAll", 
-			hoverHelp      => $i18n->echo('Choose the template to use for the all view which displays all of the tickets local to this asset'),
-			label          => $i18n->echo('View All Template'),
-		},
-        searchTemplateId =>{
-            fieldType      => "template",  
-			defaultValue   => 'HELPDESK00000000000004',
-			tab            => "display",
-			namespace      => "HelpDesk/search", 
-			hoverHelp      => $i18n->echo('Choose the template to use for the search tab which allows users to search for and find tickets'),
-			label          => $i18n->echo('Search Template'),
-		},
-        manageMetaTemplateId =>{
-            fieldType      => "template",  
-			defaultValue   => 'HELPDESK00000000000005',
-			tab            => "display",
-			namespace      => "HelpDesk/manageMeta", 
-			hoverHelp      => $i18n->echo('Choose the template to use for managing help desk meta data'),
-			label          => $i18n->echo('Manage Meta Data Template'),
-		},
-        editMetaFieldTemplateId =>{
-            fieldType      => "template",  
-			defaultValue   => 'HELPDESK00000000000006',
-			tab            => "display",
-			namespace      => "HelpDesk/editMetaField", 
-			hoverHelp      => $i18n->echo('Choose the template to use for editing help desk meta fields'),
-			label          => $i18n->echo('Edit Meta Field Template'),
-		},
-        notificationTemplateId =>{
-            fieldType      => "template",  
-			defaultValue   => 'HELPDESK00000000000007',
-			tab            => "display",
-			namespace      => "HelpDesk/notify", 
-			hoverHelp      => $i18n->echo('Choose the template to use for sending email'),
-			label          => $i18n->echo('Notification Tempalte'),
-		},
-        editTicketTemplateId =>{
-            fieldType      => "template",  
-			defaultValue   => 'TICKET0000000000000001',
-			tab            => "display",
-			namespace      => "Ticket/edit",
-			hoverHelp      => $i18n->echo('Choose the template to use for editing a ticket'),
-			label          => $i18n->echo('Edit Ticket Template'),
-		},
-        viewTicketTemplateId =>{
-            fieldType      => "template",  
-			defaultValue   => 'TICKET0000000000000002',
-			tab            => "display",
-			namespace      => "Ticket/view", 
-			hoverHelp      => $i18n->echo('Choose the template to use for the main view of a ticket'),
-			label          => $i18n->echo('View Ticket Template'),
-		},
-        viewTicketRelatedFilesTemplateId =>{
-            fieldType      => "template",  
-			defaultValue   => 'TICKET0000000000000003',
-			tab            => "display",
-			namespace      => "Ticket/relatedFiles",
-			hoverHelp      => $i18n->echo('Choose the template to use for displaying related files when viewing a ticket'),
-			label          => $i18n->echo('Related Files for View Ticket Template'),
-		},
-        viewTicketUserListTemplateId =>{
-            fieldType      => "template",  
-			defaultValue   => 'TICKET0000000000000004',
-			tab            => "display",
-			namespace      => "Ticket/userList",
-			hoverHelp      => $i18n->echo('Choose the template to use for displaying the list of users when assigning a ticket to a user'),
-			label          => $i18n->echo('User List for View Ticket Template'),
-		},
-        viewTicketCommentsTemplateId =>{
-            fieldType      => "template",  
-			defaultValue   => 'TICKET0000000000000005',
-			tab            => "display",
-			namespace      => "Ticket/comments",
-			hoverHelp      => $i18n->echo('Choose the template to use for displaying the comments when viewing a ticket'),
-			label          => $i18n->echo('Comments for View Ticket Template'),
-		},
-        viewTicketHistoryTemplateId =>{
-            fieldType      => "template",  
-			defaultValue   => 'TICKET0000000000000006',
-			tab            => "display",
-			namespace      => "Ticket/history",
-			hoverHelp      => $i18n->echo('Choose the template to use for displaying the history when viewing a ticket'),
-			label          => $i18n->echo('History for View Ticket Template'),
-		},
-        groupToPost => {
-            tab            => "security",
-            fieldType      => "group",
-            defaultValue   => 2, # Registered Users
-            label          => $i18n->echo("Who can post?"),
-            hoverHelp      => $i18n->echo("Choose the group of users that can post bugs to the list"),
-        },
-        groupToChangeStatus => {
-            tab            => "security",
-            fieldType      => "group",
-            defaultValue   => 3, # Admins
-            label          => $i18n->echo("Who can change status?"),
-            hoverHelp      => $i18n->echo("Choose the group of users that can change the status of a bug.  By default the user assigned to the ticket and users who can edit the help desk will already have this privilege.  This is an additional group that can work on tickets"),
-        },
-        richEditIdPost => {
-            tab             => "display",
-            fieldType       => "selectRichEditor",
-            defaultValue    => "PBrichedit000000000002", # Forum Rich Editor
-            label           => $i18n->echo("Post Rich Editor"),
-            hoverHelp       => $i18n->get("Choose the rich editor to use for posting"),
-        },
-        karmaEnabled => {
-            tab             => "properties",
-            fieldType       => "yesNo",
-            defaultValue    => 0,
-            visible         => $useKarma,
-            label           => $i18n->echo("Enable Karma"),
-            hoverHelp       => $i18n->get("This enabled or disables karma and is used to determine whether or not to enable the karma settings on this HelpDesk"),
-        },
-        defaultKarmaScale => {
-            tab             => "properties",
-            fieldType       => "integer",
-            defaultValue    => 1,
-            visible         => $useKarma,
-            label           => $i18n->echo("Default Karma Scale"),
-            hoverHelp       => $i18n->get("This is the default value that will be assigned to the karma scale field in threads. Karma scale is a weighting mechanism for karma sorting that can be used for handicaps, difficulty, etc."),
-        },
-        karmaPerPost => {
-            tab             => "properties",
-            fieldType       => "integer",
-            defaultValue    => 0,
-            visible         => $useKarma,
-            label           => $i18n->echo("Karma Per Post"),
-            hoverHelp       => $i18n->get("Enter the amount of karma that should be given each time a user posts a comment"),
-        },
-        karmaToClose => {
-            tab             => "properties",
-            fieldType       => "integer",
-            defaultValue    => 0,
-            visible         => $useKarma,
-            label           => $i18n->echo("Karma To Close"),
-            hoverHelp       => $i18n->get("Enter the amount of karma that should be given to the person assigned to the ticket once it is closed"),
-        },
-        subscriptionGroup =>{
-            fieldType       =>"subscriptionGroup",
-            tab             =>'security',
-            label           =>$i18n->echo("Subscription Group"),
-            hoverHelp       =>$i18n->echo("The group that users subscribed to this help desk are members of"),
-            noFormPost      =>1,
-            defaultValue    =>undef,
-        },
-        approvalWorkflow =>{
-			fieldType       =>"workflow",
-			defaultValue    =>"pbworkflow000000000003",
-			type            =>'WebGUI::VersionTag',
-			tab             =>'security',
-			label           =>$i18n->get('approval workflow'),
-			hoverHelp       =>$i18n->get('approval workflow description'),
-		},
-        autoSubscribeToTicket => {
-			fieldType       => "yesNo",
-			defaultValue    => 1,
-			tab             => 'mail',
-			label           => $i18n->get("auto subscribe to ticket"),
-			hoverHelp       => $i18n->get("auto subscribe to ticket help"),
-		},
-		requireSubscriptionForEmailPosting => {
-			fieldType       => "yesNo",
-			defaultValue    => 1,
-			tab             => 'mail',
-			label           => $i18n->get("require subscription for email posting"),
-			hoverHelp       => $i18n->get("require subscription for email posting help"),
-		},
-        mailServer=>{
-			fieldType       => "text",
-			defaultValue    => undef,
-			tab             => 'mail',
-			label           => $i18n->get("mail server"),
-			hoverHelp       => $i18n->get("mail server help"),
-		},
-		mailAccount=>{
-			fieldType       => "text",
-			defaultValue    => undef,
-			tab             => 'mail',
-			label           => $i18n->get("mail account"),
-			hoverHelp       => $i18n->get("mail account help"),
-		},
-		mailPassword=>{
-			fieldType       => "password",
-			defaultValue    => undef,
-			tab             => 'mail',
-			label           => $i18n->get("mail password"),
-			hoverHelp       => $i18n->get("mail password help"),
-		},
-		mailAddress=>{
-			fieldType       => "email",
-			defaultValue    => undef,
-			tab             => 'mail',
-			label           => $i18n->get("mail address"),
-			hoverHelp       => $i18n->get("mail address help"),
-		},
-		mailPrefix=>{
-			fieldType       =>"text",
-			defaultValue    =>undef,
-			tab             =>'mail',
-			label           =>$i18n->get("mail prefix"),
-			hoverHelp       =>$i18n->get("mail prefix help"),
-		},
-		getMailCronId=>{
-			fieldType       => "hidden",
-			defaultValue    => undef,
-			noFormPost      => 1
-		},
-		getMail=>{
-			fieldType       => "yesNo",
-			defaultValue    => 0,
-			tab             => 'mail',
-			label           => $i18n->get("get mail"),
-			hoverHelp       => $i18n->get("get mail help"),
-		},
-		getMailInterval=>{
-			fieldType       => "interval",
-			defaultValue    => 300,
-			tab             => 'mail',
-			label           => $i18n->get("get mail interval"),
-			hoverHelp       => $i18n->get("get mail interval help"),
-		},
-        closeTicketsAfter =>{
-			fieldType       => "interval",
-			defaultValue    => 1209600,
-			tab             => 'properties',
-			label           => $i18n->echo("Close Tickets After"),
-			hoverHelp       => $i18n->echo("Resolved tickets get closed after this period of time"),            
-        },
-            runOnNewTicket => {
-                fieldType  => 'workflow',
-                tab        => 'display',
-                noFormPost => 0,
-                hoverHelp  => $i18n->echo( 'Workflow to kick off after adding new ticket' ),
-                label      => $i18n->echo( 'Run on New Ticket' ),
-            },
-	);
-	push(@{$definition}, {
-		assetName=>$i18n->get('assetName'),
-		autoGenerateForms=>1,
-		tableName=>'HelpDesk',
-		className=>'WebGUI::Asset::Wobject::HelpDesk',
-		properties=>\%properties
-	});
-    return $class->SUPER::definition($session, $definition);
-}
-
-
-#-------------------------------------------------------------------
-
-=head2 duplicate ( )
-
-duplicates a New Wobject.  This method is unnecessary, but if you have 
-auxiliary, ancillary, or "collateral" data or files related to your 
-wobject instances, you will need to duplicate them here.
-
-=cut
-
-sub duplicate {
-	my $self = shift;
-	my $newAsset = $self->SUPER::duplicate(@_);
-	return $newAsset;
 }
 
 #-------------------------------------------------------------------
@@ -694,7 +667,7 @@ sub getSortOptions {
 sub getSubscriptionGroup {
 	my $self  = shift;
 
-    my $group = $self->get("subscriptionGroup");
+    my $group = $self->subscriptionGroup;
     if ($group) {
 		$group = WebGUI::Group->new($self->session,$group);
 	}
@@ -747,14 +720,14 @@ sub isSubscribed {
         $user   = $self->session->user;
     }
 
-    return 0 unless ($self->get("subscriptionGroup"));
-	return $user->isInGroup($self->get("subscriptionGroup"));
+    return 0 unless ($self->subscriptionGroup);
+	return $user->isInGroup($self->subscriptionGroup);
 }
 
 #-------------------------------------------------------------------
 sub karmaIsEnabled {
     my $self = shift;
-    return ($self->session->setting->get("useKarma") && $self->get("karmaEnabled"));
+    return ($self->session->setting->get("useKarma") && $self->karmaEnabled);
 }
 
 #-------------------------------------------------------------------
@@ -768,7 +741,7 @@ See WebGUI::Asset::prepareView() for details.
 sub prepareView {
 	my $self = shift;
 	$self->SUPER::prepareView();
-	my $template = WebGUI::Asset::Template->new($self->session, $self->get("viewTemplateId"));
+	my $template = WebGUI::Asset::Template->new($self->session, $self->viewTemplateId);
 
 	$template->prepare;
 	$self->{_viewTemplate} = $template;
@@ -805,12 +778,12 @@ sub purge {
     my $session = $self->session;
 
     #Delete the subscription group
-	my $group = WebGUI::Group->new($session, $self->get("subscriptionGroup"));
+	my $group = WebGUI::Group->new($session, $self->subscriptionGroup);
 	$group->delete if ($group);
     
     #Delete the mail cron
-    if ($self->get("getMailCronId")) {
-		my $cron = WebGUI::Workflow::Cron->new($session, $self->get("getMailCronId"));
+    if ($self->getMailCronId) {
+		my $cron = WebGUI::Workflow::Cron->new($session, $self->getMailCronId);
 		$cron->delete if defined $cron;
 	}
 
@@ -985,7 +958,7 @@ sub www_editHelpDeskMetaField {
     $var->{'form_hoverHelp'} = WebGUI::Form::HTMLArea( $session, {
         name        => "hoverHelp",
         value       => ( $form->get("hoverHelp") || $data->{hoverHelp} ),
-        richEditId  => $self->get("richEditIdPost"),
+        richEditId  => $self->richEditIdPost,
         height      => 300,
     });
 
@@ -997,7 +970,7 @@ sub www_editHelpDeskMetaField {
     $var->{'form_end'          } = WebGUI::Form::formFooter( $session );
 
     return $self->processStyle(
-        $self->processTemplate( $var, $self->get("editMetaFieldTemplateId") )
+        $self->processTemplate( $var, $self->editMetaFieldTemplateId )
     );
 }
 
@@ -1102,8 +1075,8 @@ sub www_getAllTickets {
     return $session->privilege->insufficient unless $self->canView;
 
 
-    my $orderByColumn    = $form->get( 'orderByColumn' ) || $self->get("sortColumn");
-    my $dir              = $form->get('orderByDirection') || $self->get('sortOrder');
+    my $orderByColumn    = $form->get( 'orderByColumn' ) || $self->sortColumn;
+    my $dir              = $form->get('orderByDirection') || $self->sortOrder;
     my $orderByDirection = lc ($dir) eq "asc" ? "ASC" : "DESC";
 
     #Only allow specific filter types
@@ -1164,7 +1137,7 @@ sub www_getAllTickets {
     for my $record ( @{ $p->getPageData } ) {
         my $ticket = WebGUI::Asset->newByDynamicClass( $session, $record->{assetId} );
         
-        my $assignedTo = $ticket->get("assignedTo");
+        my $assignedTo = $ticket->assignedTo;
         if ($assignedTo) {
            $assignedTo = WebGUI::User->new($session,$assignedTo)->username;
         }
@@ -1172,29 +1145,29 @@ sub www_getAllTickets {
            $assignedTo = "unassigned";
         }
 
-        my $lastReplyById = $ticket->get("lastReplyBy");
+        my $lastReplyById = $ticket->lastReplyBy;
         my $lastReplyBy   = $lastReplyById
                           ? WebGUI::User->new($session,$lastReplyById)->username
                           : '';
 
         # Populate the required fields to fill in
-        my $lastReplyDate = $ticket->get("lastReplyDate");
+        my $lastReplyDate = $ticket->lastReplyDate;
         if($lastReplyDate) {
             $lastReplyDate = $datetime->epochToHuman($lastReplyDate,"%y-%m-%d @ %H:%n %p");
         }
 
         my %fields      = (
-            ticketId      => $ticket->get("ticketId"),
+            ticketId      => $ticket->ticketId,
             url           => $ticket->getUrl,
-            title         => $ticket->get( "title" ),
-            createdBy     => WebGUI::User->new($session,$ticket->get( "createdBy" ))->username,
-            creationDate  => $datetime->epochToSet($ticket->get( "creationDate" )),
+            title         => $ticket->title,
+            createdBy     => WebGUI::User->new($session,$ticket->createdBy)->username,
+            creationDate  => $datetime->epochToSet($ticket->creationDate),
             assignedTo    => $assignedTo,
-            ticketStatus  => $self->getStatus($ticket->get( "ticketStatus" )),
+            ticketStatus  => $self->getStatus($ticket->ticketStatus),
             lastReplyDate => $lastReplyDate,
             lastReplyBy   => $lastReplyBy,
             lastReplyById => $lastReplyById,
-            karmaRank     => sprintf("%.2f",$ticket->get("karmaRank")),
+            karmaRank     => sprintf("%.2f",$ticket->karmaRank),
         );
 
         # Add metadata fields we should show in the list
@@ -1255,7 +1228,7 @@ sub www_manageHelpDeskMetaFields {
 	my $numberOfFields  = scalar(@{$metadataFields});
     
     my $deleteMsg  = $i18n->echo('Are you certain you want to delete this metadata field?  The metadata values for this field will be deleted from all events.');
-    my $pageUrl    = $self->get("url");
+    my $pageUrl    = $self->url;
 
     my @fieldsLoop = ();
     foreach my $row (@{$metadataFields}) {
@@ -1327,7 +1300,7 @@ sub www_viewAllTickets {
     $var->{'karmaEnabled' } = $self->karmaIsEnabled;
 
     #Set the sort column to creationDate if karma is not enabled.
-    my $sortColumn          = $self->get("sortColumn");
+    my $sortColumn          = $self->sortColumn;
 
     if($sortColumn eq "karmaRank" && !$var->{'karmaEnabled'}) {
         $sortColumn = "creationDate";
@@ -1347,7 +1320,7 @@ sub www_viewAllTickets {
 
 
     $var->{'sortColumn'   } = $sortColumn;
-    $var->{'sortOrder'    } = $self->get("sortOrder");
+    $var->{'sortOrder'    } = $self->sortOrder;
 
     $session->http->setMimeType( 'text/html' );
     return $self->processTemplate($var, $self->getValue("viewAllTemplateId"));
@@ -1366,7 +1339,7 @@ sub www_viewMyTickets {
     $var->{'showKarmaRank'} = $session->setting->get('useKarma');
 
     #Set the sort column to creationDate if karma is not enabled.
-    my $sortColumn          = $self->get("sortColumn");
+    my $sortColumn          = $self->sortColumn;
 
     if($sortColumn eq "karmaRank" && !$var->{'karmaEnabled'}) {
         $sortColumn = "creationDate";
@@ -1385,7 +1358,7 @@ sub www_viewMyTickets {
     }
 
     $var->{'sortColumn'   } = $sortColumn;
-    $var->{'sortOrder'    } = $self->get("sortOrder");
+    $var->{'sortOrder'    } = $self->sortOrder;
 
     return $self->processTemplate($var, $self->getValue("viewMyTemplateId"));
 }

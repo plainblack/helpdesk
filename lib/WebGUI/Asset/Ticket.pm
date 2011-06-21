@@ -14,14 +14,111 @@ package WebGUI::Asset::Ticket;
 
 =cut
 
-use strict;
-use Tie::IxHash;
+use Moose;
+use WebGUI::Definition::Asset;
 use JSON;
-use base 'WebGUI::Asset';
-use WebGUI::Utility;
+extends 'WebGUI::Asset';
 use WebGUI::Workflow::Instance;
 
+
 my $ratingUrl       = "wobject/HelpDesk/rating/";
+
+#-------------------------------------------------------------------
+define assetName  => [ 'assetName', 'Asset_Ticket' ];
+define tableName  => 'Ticket';
+
+property storageId => (
+    fieldType    => "file",
+    defaultValue => undef,
+);
+property ticketId => (
+    noFormPost   => 1,
+    fieldType    => "hidden",
+    defaultValue => undef
+);
+property assigned => (
+    noFormPost   => 1,
+    fieldType    => "hidden",
+    defaultValue => undef
+);
+property ticketStatus => (
+    fieldType    => "selectBox",
+    defaultValue => "pending"
+);
+property isPrivate => (
+    fieldType    => "yesNo",
+    defaultValue => 0
+);
+property assignedTo => (
+    noFormPost   => 1,
+    fieldType    => "hidden",
+    defaultValue => undef
+);
+property assignedBy => (
+    noFormPost   => 1,
+    fieldType    => "hidden",
+    defaultValue => undef
+);
+property dateAssigned => (
+    noFormPost   => 1,
+    fieldType    => "hidden",
+    defaultValue => undef
+);
+property comments => (
+    noFormPost   => 1,
+    fieldType    => "hidden",
+    serialize    => 1,
+    defaultValue => [],
+);
+property solutionSummary => (
+    fieldType    => "hidden",
+    defaultValue => undef,
+);
+property averageRating => (
+    noFormPost   => 1,
+    fieldType    => "hidden",
+    defaultValue => 0,
+);
+property lastReplyDate => (
+    noFormPost   => 1,
+    fieldType    => "hidden",
+    defaultValue => undef
+);
+property lastReplyBy => (
+    noFormPost   => 1,
+    fieldType    => "hidden",
+    defaultValue => undef
+);
+property resolvedBy => (
+    noFormPost   => 1,
+    fieldType    => "hidden",
+    defaultValue => undef
+);
+property resolvedDate => (
+    noFormPost   => 1,
+    fieldType    => "hidden",
+    defaultValue => undef
+);
+property karma => (
+    noFormPost   => 1,
+    fieldType    => "hidden",
+    defaultValue => undef
+);
+property karmaScale => (
+    fieldType    => "hidden",
+    defaultValue => undef,
+);
+property karmaRank => (
+    noFormPost   => 1,
+    fieldType    => "hidden",
+    defaultValue => undef
+);
+property subscriptionGroup => (
+    noFormPost   => 1,
+    fieldType    => "hidden",
+    defaultValue => undef,
+);
+
 
 #-------------------------------------------------------------------
 sub canAdd {
@@ -33,7 +130,7 @@ sub canAdd {
     unless (ref $asset eq "WebGUI::Asset::Wobject::HelpDesk") {
         return 0;
     }
-    return $session->user->isInGroup($asset->get('groupToPost'));
+    return $session->user->isInGroup($asset->groupToPost);
 }
 
 #-------------------------------------------------------------------
@@ -51,12 +148,12 @@ sub canChangeStatus {
     my $self       = shift;
     my $session    = $self->session;
     my $userId     = shift || $session->user->userId;
-    my $assignedTo = $self->get("assignedTo");
+    my $assignedTo = $self->assignedTo;
     
     return (
         $self->canEdit($userId)
         ||  $userId eq $assignedTo
-        || WebGUI::User->new($session,$userId)->isInGroup($self->getParent->get("groupToChangeStatus"))
+        || WebGUI::User->new($session,$userId)->isInGroup($self->getParent->groupToChangeStatus)
     );
 }
 
@@ -103,8 +200,8 @@ sub canPost {
     my $self    = shift;
     my $userId  = shift || $self->session->user->userId;
     
-    my $ownerId    = $self->get("createdBy");
-    my $assignedTo = $self->get("assignedTo");
+    my $ownerId    = $self->createdBy;
+    my $assignedTo = $self->assignedTo;
 
     return 1 if $self->canUpdate($userId);
     return $self->getParent->canPost($userId);
@@ -117,8 +214,8 @@ sub canUpdate {
     my $self    = shift;
     my $userId  = shift || $self->session->user->userId;
     
-    my $ownerId    = $self->get("createdBy");
-    my $assignedTo = $self->get("assignedTo");
+    my $ownerId    = $self->createdBy;
+    my $assignedTo = $self->assignedTo;
 
     return ($userId eq $ownerId || $userId eq $assignedTo || $self->canEdit($userId));
 }
@@ -149,10 +246,10 @@ sub commit {
     my $msg = $i18n->get("update_ticket_message");
     
     #Award karma for new posts
-	if ($self->get("creationDate") == $self->get("revisionDate")) {
-        my $karmaPerPost = $parent->get("karmaPerPost");
+	if ($self->creationDate == $self->revisionDate) {
+        my $karmaPerPost = $parent->karmaPerPost;
 		if ($parent->karmaIsEnabled && $karmaPerPost ){
-			my $u = WebGUI::User->new($session, $self->get("createdBy"));
+			my $u = WebGUI::User->new($session, $self->createdBy);
 			$u->karma($karmaPerPost, $self->getId, "Help Desk post");
 		}
         $msg = $i18n->get("new_ticket_message");
@@ -161,7 +258,7 @@ sub commit {
     $self->notifySubscribers({
         content         =>$msg,
         includeMetaData =>1,
-        user            =>WebGUI::User->new($session,$self->get("ownerUserId"))
+        user            =>WebGUI::User->new($session,$self->ownerUserId)
     }) unless ($self->shouldSkipNotification);
 
 }
@@ -184,140 +281,6 @@ sub createAdHocMailGroup {
 
 #-------------------------------------------------------------------
 
-=head2 definition ( session, definition )
-
-defines asset properties for New Asset instances.  You absolutely need 
-this method in your new Assets. 
-
-=head3 session
-
-=head3 definition
-
-A hash reference passed in from a subclass definition.
-
-=cut
-
-sub definition {
-	my $class = shift;
-	my $session = shift;
-	my $definition = shift;
-	my %properties;
-	tie %properties, 'Tie::IxHash';
-	my $i18n = WebGUI::International->new($session, "Asset_Ticket");
-	%properties = (
-		storageId => {
-            fieldType    =>"file",
-            defaultValue =>undef,
-        },
-        ticketId => {
-            noFormPost   =>1,
-            fieldType    =>"hidden",
-            defaultValue =>undef
-        },
-        assigned => {
-            noFormPost   =>1,
-            fieldType    =>"hidden",
-            defaultValue =>undef
-        },
-        ticketStatus => {
-            fieldType    =>"selectBox",
-            defaultValue => "pending"
-        },
-        isPrivate => {
-            fieldType    =>"yesNo",
-            defaultValue => 0
-        },
-        assignedTo => {
-            noFormPost   =>1,
-            fieldType    =>"hidden",
-            defaultValue =>undef
-        },
-        assignedBy => {
-            noFormPost   =>1,
-            fieldType    =>"hidden",
-            defaultValue =>undef
-        },
-        dateAssigned => {
-            noFormPost   =>1,
-            fieldType    =>"hidden",
-            defaultValue =>undef
-        },
-        comments => {
-			noFormPost	  => 1,
-			fieldType     => "hidden",
-			defaultValue  => [],
-		},
-        solutionSummary => {
-			fieldType     => "hidden",
-			defaultValue  => undef,
-		},
-        averageRating => {
-            noFormPost	  => 1,
-			fieldType     => "hidden",
-			defaultValue  => 0,
-		},
-        lastReplyDate => {
-            noFormPost   =>1,
-            fieldType    =>"hidden",
-            defaultValue =>undef
-        },
-        lastReplyBy => {
-            noFormPost   =>1,
-            fieldType    =>"hidden",
-            defaultValue =>undef
-        },
-        resolvedBy => {
-            noFormPost   =>1,
-            fieldType    =>"hidden",
-            defaultValue =>undef
-        },
-        resolvedDate => {
-            noFormPost   =>1,
-            fieldType    =>"hidden",
-            defaultValue =>undef
-        },
-        karma => {
-            noFormPost   =>1,
-            fieldType    =>"hidden",
-            defaultValue =>undef
-        },
-        karmaScale => {
-            fieldType    =>"hidden",
-            defaultValue =>undef,
-        },
-        karmaRank => {
-            noFormPost   =>1,
-            fieldType    =>"hidden",
-            defaultValue =>undef
-        },
-        subscriptionGroup =>{
-            noFormPost      =>1,
-            fieldType       =>"hidden",
-            defaultValue    =>undef,
-        },
-	);
-    push(@{$definition}, {
-        assetName  => $i18n->get('assetName'),
-        tableName  => 'Ticket',
-        className  => 'WebGUI::Asset::Ticket',
-        properties => \%properties,
-    });
-	return $class->SUPER::definition($session, $definition);
-}
-
-
-#-------------------------------------------------------------------
-sub get {
-	my $self = shift;
-	my $param = shift;
-	if ($param eq 'comments') {
-		return JSON->new->decode($self->SUPER::get('comments')||'[]');
-	}
-	return $self->SUPER::get($param, @_);
-}
-
-#-------------------------------------------------------------------
-
 =head2 getAverageRatingImage
 
    This method returns the average rating image based on the rating passed in
@@ -326,7 +289,7 @@ sub get {
 
 sub getAverageRatingImage {
 	my $self   = shift;
-    my $rating = shift || $self->get("averageRating");
+    my $rating = shift || $self->averageRating;
     return  $self->session->url->extras($ratingUrl."0.png") unless ($rating);
     #Round to one digit integer
     my $imageId = int(sprintf("%1.0f", $rating));
@@ -343,7 +306,7 @@ sub getAverageRatingImage {
 
 sub getAutoCommitWorkflowId {
 	my $self = shift;
-	return $self->getParent->get("approvalWorkflow");
+	return $self->getParent->approvalWorkflow;
 }
 
 #-------------------------------------------------------------------
@@ -378,7 +341,7 @@ sub getCommonDisplayVars {
         : undef
         ;
     
-    $ticketStatus = $parent->getStatus($self->get("ticketStatus"));
+    $ticketStatus = $parent->getStatus($self->ticketStatus);
 
     #Format Data for Display
     $var->{'ticketStatus'     } = $ticketStatus;
@@ -394,7 +357,7 @@ sub getCommonDisplayVars {
     $var->{'creationDate'     } = $session->datetime->epochToSet($var->{'creationDate'});
     $var->{'dateAssigned'     } = $session->datetime->epochToSet($var->{'dateAssigned'});
     $var->{'isPrivate'        } = $self->isPrivate;
-    $var->{'solutionSummary'  } = $self->get("solutionSummary");
+    $var->{'solutionSummary'  } = $self->solutionSummary;
     
     #Display metadata
     my $metafields   = $parent->getHelpDeskMetaFields({returnHashRef => 1});
@@ -514,7 +477,7 @@ Properly posts a file to it's storage location
 sub getStorageLocation {
     my $self      = shift;
     
-    my $storageId = $self->get("storageId");
+    my $storageId = $self->storageId;
     my $store     = undef;
 
     if ($storageId) {
@@ -533,13 +496,13 @@ sub getStorageLocation {
 sub getSubscriptionGroup {
 	my $self  = shift;
 
-    my $group = $self->get("subscriptionGroup");
+    my $group = $self->subscriptionGroup;
     if ($group) {
 		$group = WebGUI::Group->new($self->session,$group);
 	}
     #Group Id was stored in the database but someone deleted the actual group
     unless($group) {
-        $group = $self->getParent->createSubscriptionGroup($self,"ticket",$self->get("ticketId"));
+        $group = $self->getParent->createSubscriptionGroup($self,"ticket",$self->ticketId);
     }
     return $group;
 }
@@ -618,7 +581,7 @@ Returns a boolean indicating whether this ticket is assigned or not.
 
 sub isAssigned {
     my $self     = shift;
-    return $self->get("isAssigned");
+    return $self->isAssigned;
 }
 
 #-------------------------------------------------------------------
@@ -631,7 +594,7 @@ Returns a boolean indicating whether this ticket is private or not.
 
 sub isPrivate {
     my $self     = shift;
-    return $self->get("isPrivate");
+    return $self->isPrivate;
 }
 
 #-------------------------------------------------------------------
@@ -644,7 +607,7 @@ Returns a boolean indicating whether there are comments on this ticket.
 
 sub isReply {
     my $self     = shift;
-    my $comments = $self->get("comments");
+    my $comments = $self->comments;
     return (scalar(@$comments) > 1);
 }
 
@@ -687,8 +650,8 @@ sub isSubscribedToTicket {
     }
 
     #Return false if the subscription group is not set
-    return 0 unless ($self->get("subscriptionGroup"));
-	return $user->isInGroup($self->get("subscriptionGroup"));	
+    return 0 unless ($self->subscriptionGroup);
+	return $user->isInGroup($self->subscriptionGroup);	
 }
 
 #----------------------------------------------------------------------------
@@ -762,7 +725,7 @@ sub notifySubscribers {
     my $parent         = $self->getParent;
     my $user           = $props->{user} || $session->user;
 
-    my $domain         = $parent->get("mailAddress");
+    my $domain         = $parent->mailAddress;
     $domain            =~ s/.*\@(.*)/$1/;
    
     #Set the messageId
@@ -873,7 +836,7 @@ sub postComment {
 
     return 0 if ($comment eq "");
 
-    my $comments  = $self->get('comments');    
+    my $comments  = $self->comments;    
     my $commentId;
     if( $options->{commentId} && $options->{commentId} ne 'new' ) {
         $commentId = $options->{commentId};
@@ -882,7 +845,7 @@ sub postComment {
 	        $item->{comment} = $comment;
 	        $item->{rating} = $rating;
 	        $item->{data} = $now;
-	        $item->{ip} = $session->var->get('lastIP');
+	        $item->{ip} = $session->request->address;
 	    }
         }
     } else {
@@ -894,7 +857,7 @@ sub postComment {
 		comment		=> $comment,
 		rating		=> $rating,
 		date		=> $now,
-		ip			=> $session->var->get('lastIP'),
+		ip			=> $session->request->address,
 	};
     }
 
@@ -924,12 +887,12 @@ sub postComment {
 
     #Award karma
     if($useKarma) {
-        my $amount         = $parent->get("karmaPerPost");
-        my $comment        = "Left comment for Ticket ".$self->get("ticketId");
+        my $amount         = $parent->karmaPerPost;
+        my $comment        = "Left comment for Ticket ".$self->ticketId;
         $user->karma($amount, $self->getId, $comment);
     }
     
-    my $ticketStatus = $self->get("ticketStatus");
+    my $ticketStatus = $self->ticketStatus;
     if($status) {
         #This was a post to change the ticket status so update the comment
         my $statusMessage = $i18n->get("notification_status_message");
@@ -944,7 +907,7 @@ sub postComment {
         $self->setStatus($status,$user);
         my $statusMessage = $i18n->get("notification_status_message");
         #Ticket status was changed so update the comment
-        $ticketStatus     = $parent->getStatus($self->get("ticketStatus"));
+        $ticketStatus     = $parent->getStatus($self->ticketStatus);
         $comment          = sprintf($statusMessage,$ticketStatus)."<br /><br />".$comment;
     }
     
@@ -1020,9 +983,9 @@ sub processPropertiesFromFormPost {
     
     ### Passes all checks
     # If this is a new ticket, update the url to include the ticketId
-    my $ticketId   = $self->get("ticketId");
-    my $karmaScale = $form->get("karmaScale") || $self->get("karmaScale") || $parent->get("defaultKarmaScale");
-    my $karma      = $self->get("karma");
+    my $ticketId   = $self->ticketId;
+    my $karmaScale = $form->get("karmaScale") || $self->karmaScale || $parent->defaultKarmaScale;
+    my $karma      = $self->karma;
     my $historyMsg = "Ticket edited";
 
     if ( $form->get('assetId') eq "new" ) {
@@ -1033,13 +996,13 @@ sub processPropertiesFromFormPost {
     #This also inserts the record into the search index table
     # and updates metadata
     $self->update( {
-        url           => $session->url->urlize( join "/", $parent->get('url'), $ticketId ),
+        url           => $session->url->urlize( join "/", $parent->url, $ticketId ),
         ticketId      => $ticketId,
         karmaScale    => $karmaScale,
         karma         => $karma,
         metadata      => [@metadata],
-        lastReplyDate => $self->get('lastModified'),
-        lastReplyBy   => $self->get('ownerUserId'),
+        lastReplyDate => $self->lastModified,
+        lastReplyBy   => $self->ownerUserId,
     });
 
 
@@ -1054,7 +1017,7 @@ sub processPropertiesFromFormPost {
 
     # kick off Run On New Ticket workflow
     if ( $form->get('assetId') eq "new" ) {
-        if ( my $workflowId = $parent->get( 'runOnNewTicket' ) ) {
+        if ( my $workflowId = $parent->runOnNewTicket ) {
             WebGUI::Workflow::Instance->create( $session, {
                  workflowId => $workflowId,
                  methodName => 'new',
@@ -1087,12 +1050,12 @@ sub purge {
     my $db      = $session->db;
 
     #Delete the subscription group
-    my $group = WebGUI::Group->new($session, $self->get("subscriptionGroup"));
+    my $group = WebGUI::Group->new($session, $self->subscriptionGroup);
 	$group->delete if ($group);
 
     #Delete the storage location and all the files.
-    if($self->get("storageId")) {
-        my $store = WebGUI::Storage->get($session,$self->get("storageId"));
+    if($self->storageId) {
+        my $store = WebGUI::Storage->get($session,$self->storageId);
         $store->delete;
     }
 
@@ -1188,7 +1151,7 @@ sub sendMail {
     my $parentUrl      = $siteurl.$parent->getUrl;
     my $returnAddress  = $setting->get("mailReturnPath");
     my $companyAddress = $setting->get("companyEmail");
-    my $listAddress    = $parent->get("mailAddress");
+    my $listAddress    = $parent->mailAddress;
     my $companyUrl     = $setting->get("companyURL");
     my $companyName    = $setting->get("companyName");
     
@@ -1221,11 +1184,11 @@ sub sendMail {
         $var->{'content'            } = $props->{content};
 
         #Create the message
-        $message   = $self->processTemplate($var, $parent->get("notificationTemplateId"));
+        $message   = $self->processTemplate($var, $parent->notificationTemplateId);
     }
     
     #Subject
-    my $subject   = $props->{subject} || $parent->get("mailPrefix").$self->get("title");
+    my $subject   = $props->{subject} || $parent->mailPrefix.$self->title;
     
     #Set the messageId info
     my $messageId = $props->{messageId} ? "<".$props->{messageId}.">" : "";
@@ -1281,7 +1244,7 @@ sub setStatus {
     my $useKarma     = $parent->karmaIsEnabled;
 
     my $ticketStatus = shift;
-    my $assetStatus  = $self->get("status");
+    my $assetStatus  = $self->status;
     my $user         = shift || $session->user;
 
     return 0 unless $ticketStatus;
@@ -1294,14 +1257,14 @@ sub setStatus {
     #Handle closed tickets
     if($ticketStatus eq "closed") {
         if($useKarma) {
-            my $amount     = $parent->get("karmaToClose");
-            my $comment    = "Closed Ticket ".$self->get("ticketId");
+            my $amount     = $parent->karmaToClose;
+            my $comment    = "Closed Ticket ".$self->ticketId;
             #Figure out who to give the karma to
             #If the ticket hasn't been resolved, then it is being manually closed.
             my $closedBy = $user;
             #Use resolved by if it's being automatically closed or manually resolved
-            if($self->get("resolvedBy")) {
-                $closedBy = WebGUI::User->new($session,$self->get("resolvedBy"));
+            if($self->resolvedBy) {
+                $closedBy = WebGUI::User->new($session,$self->resolvedBy);
             }
             $closedBy->karma($amount, $self->getId, $comment);
         }
@@ -1364,7 +1327,7 @@ sub setKarmaScale {
     return 0 unless $useKarma;
 
     my $karmaScale = shift;
-    my $karma      = $self->get("karma");
+    my $karma      = $self->karma;
 
     #Don't let karma scale be set to zero
     return 0 unless $karmaScale;
@@ -1417,10 +1380,10 @@ sub ticketStatusEdit {
     # if the user can change the status then send an editable field
     if( $self->canChangeStatus ) {
         my $status = $parent->getStatus;
-	my $value   = $self->get("ticketStatus");
+	my $value   = $self->ticketStatus;
         delete $status->{pending} unless $value eq 'pending';
         delete $status->{closed} unless $value eq 'closed';
-        delete $status->{feedback} if ! $session->user->isInGroup($parent->get('groupToChangeStatus'));
+        delete $status->{feedback} if ! $session->user->isInGroup($parent->groupToChangeStatus);
         return WebGUI::Form::selectBox($session,{
 		name    =>"ticketStatus",
                 id      =>"ticketStatus_formId",
@@ -1429,7 +1392,7 @@ sub ticketStatusEdit {
                 extras  => q{class="dyn_form_field" onchange="WebGUI.Ticket.saveTicketStatus(this)"}
 	    });
     } else {
-        return $self->getParent->getStatus($self->get("ticketStatus"));
+        return $self->getParent->getStatus($self->ticketStatus);
     }
 }
 
@@ -1450,8 +1413,8 @@ sub transferKarma {
     return 0 unless $useKarma;
 
     my $amount       = shift;
-    my $karma        = $self->get("karma") + $amount;
-    my $karmaScale   = $self->get("karmaScale");
+    my $karma        = $self->karma + $amount;
+    my $karmaScale   = $self->karmaScale;
     my $karmaRank    = $karma / $karmaScale;    
 
     #Update the ticket
@@ -1520,11 +1483,11 @@ sub update {
     }
     #Karma scale cannot be zero
     if(exists $properties->{karmaScale} && $properties->{karmaScale} == 0) {
-        $properties->{karmaScale} = $self->get("karmaScale") || $parent->get("defaultKarmaScale");
+        $properties->{karmaScale} = $self->karmaScale || $parent->defaultKarmaScale;
     }
     if ($properties->{karma} || $properties->{karmaScale}) {
-        my $scale = $properties->{karmaScale} || $self->get("karmaScale") || 1;
-        my $karma = $properties->{karma} || $self->get("karma");
+        my $scale = $properties->{karmaScale} || $self->karmaScale || 1;
+        my $karma = $properties->{karma} || $self->karma;
         $properties->{karmaRanking} = $karma / $scale;
     }
     #Update Ticket
@@ -1543,23 +1506,23 @@ sub update {
     my $props = {
         assetId         => $self->getId,
         parentId        => $self->getParent->getId,
-        lineage         => $self->get("lineage"),
+        lineage         => $self->lineage,
         url             => $self->getUrl,
-        ticketId        => $self->get("ticketId"),
-        creationDate    => $self->get("creationDate"),
-        createdBy       => $self->get("createdBy"),
-        synopsis        => $self->get("synopsis"),
-        title           => $self->get("title"),
-        isPrivate       => $self->get("isPrivate"),
-        keywords        => $self->get("keywords"),
-        assignedTo      => $self->get("assignedTo"),
-        assignedBy      => $self->get("assignedBy"),
-        dateAssigned    => $self->get("dateAssigned"),
-        ticketStatus    => $self->get("ticketStatus"),
-        solutionSummary => $self->get("solutionSummary"),
-        lastReplyDate   => $self->get("lastReplyDate"),
-        lastReplyBy     => $self->get("lastReplyBy"),
-        karmaRank       => $self->get("karmaRank")
+        ticketId        => $self->ticketId,
+        creationDate    => $self->creationDate,
+        createdBy       => $self->createdBy,
+        synopsis        => $self->synopsis,
+        title           => $self->title,
+        isPrivate       => $self->isPrivate,
+        keywords        => $self->keywords,
+        assignedTo      => $self->assignedTo,
+        assignedBy      => $self->assignedBy,
+        dateAssigned    => $self->dateAssigned,
+        ticketStatus    => $self->ticketStatus,
+        solutionSummary => $self->solutionSummary,
+        lastReplyDate   => $self->lastReplyDate,
+        lastReplyBy     => $self->lastReplyBy,
+        karmaRank       => $self->karmaRank
     };
 
     my $metaFields = $parent->getHelpDeskMetaFields({searchOnly=>1});
@@ -1640,8 +1603,8 @@ sub view {
     #Format Data for Display
     $var->{'averageRating_src'} = $self->getAverageRatingImage($var->{'averageRating'});
     $var->{'averageRating'    } = sprintf("%.1f", $var->{'averageRating'});
-    $var->{'solutionStyle'    } = "display:none;" unless ( isIn($self->get("ticketStatus"),qw(resolved closed)) );
-    #$var->{'isPrivate'        } = $self->get("isPrivate");
+    $var->{'solutionStyle'    } = "display:none;" unless ( isIn($self->ticketStatus,qw(resolved closed)) );
+    #$var->{'isPrivate'        } = $self->isPrivate;
 
     #Icons
     $var->{'edit_icon_src'    } = $self->session->icon->getBaseURL()."edit.gif";
@@ -1656,8 +1619,8 @@ sub view {
     $var->{'canChangeStatus'         } = $self->canChangeStatus;
     $var->{'canAssign'               } = $self->canAssign;
     $var->{'isVisitor'               } = $user->isVisitor;
-    $var->{'isOwner'                 } = $user->userId eq $self->get("ownerUserId");
-    $var->{'ticketResolved'          } = $self->get("ticketStatus") eq "resolved";
+    $var->{'isOwner'                 } = $user->userId eq $self->ownerUserId;
+    $var->{'ticketResolved'          } = $self->ticketStatus eq "resolved";
     $var->{'ticketResolvedAndIsOwner'} = $var->{'ticketResolved'} && $var->{'isOwner'};
     $var->{'ticketStatus'            } = $self->ticketStatusEdit;
 
@@ -1683,18 +1646,18 @@ sub view {
 
     #Karma
     $var->{'useKarma'         } = $parent->karmaIsEnabled;
-    $var->{'karma'            } = $self->get("karma") || 0;
+    $var->{'karma'            } = $self->karma || 0;
     if( $self->canEdit ) {
         $var->{'karmaScale'} = WebGUI::Form::text($session,{
 			    name      => "karmaScale",
-			    value     => $self->get("karmaScale"),
+			    value     => $self->karmaScale,
 			    maxlength => "11",
                             extras  => q{class="dyn_form_field" onchange="WebGUI.Ticket.saveKarmaScale(this)"}
 			})
     } else {
-        $var->{'karmaScale'       } = $self->get("karmaScale");
+        $var->{'karmaScale'       } = $self->karmaScale;
     }
-    $var->{'karmaRank'        } = sprintf("%.2f",$self->get("karmaRank"));
+    $var->{'karmaRank'        } = sprintf("%.2f",$self->karmaRank);
     $var->{'hasKarma'         } = ($user->isRegistered && $user->karma > 0);
     
     #History
@@ -1777,12 +1740,12 @@ sub view {
     }
 
     #Process template and determine whether to return the parent style or not.
-    my $output = $self->processTemplate($var,$parent->get("viewTicketTemplateId"));
+    my $output = $self->processTemplate($var,$parent->viewTicketTemplateId);
     if ($var->{'callerIsTicketMgr'}) {
 	$session->http->setMimeType( 'application/json' );
         $output = JSON->new->encode({
             ticketText => $output,
-            ticketId => $self->get('ticketId'),
+            ticketId => $self->ticketId,
         });
         WebGUI::Macro::process( $session, \$output );
         $session->log->preventDebugOutput;
@@ -1867,11 +1830,11 @@ sub www_edit {
             })
             . WebGUI::Form::hidden( $session, {
                 name        => 'ownerUserId',
-                value       => $self->get('ownerUserId'),
+                value       => $self->ownerUserId,
             })
             . WebGUI::Form::hidden( $session, {
                 name        => 'ticketId',
-                value       => $self->get("ticketId"),
+                value       => $self->ticketId,
             })
             ;
     }
@@ -1893,22 +1856,22 @@ sub www_edit {
     $var->{ form_title  }
         = WebGUI::Form::Text( $session, {
             name        => "title",
-            value       => ( $form->get("title") || $self->get("title") ),
+            value       => ( $form->get("title") || $self->title ),
         });
     
 
     $var->{ form_synopsis }
         = WebGUI::Form::HTMLArea( $session, {
             name        => "synopsis",
-            value       => ( $form->get("synopsis") || $self->get("synopsis") ),
-            richEditId  => $self->getParent->get("richEditIdPost"),
+            value       => ( $form->get("synopsis") || $self->synopsis ),
+            richEditId  => $self->getParent->richEditIdPost,
             height      => 300,
         });
 
     $var->{ form_attachment }
         = WebGUI::Form::file($session, {
             name            =>"storageId",
-            value           =>$self->get("storageId"),
+            value           =>$self->storageId,
             maxAttachments  =>5,
             deleteFileUrl   =>$self->getUrl("func=deleteFile;filename=")
         });
@@ -1916,33 +1879,33 @@ sub www_edit {
     $var->{ form_isPrivate }
         = WebGUI::Form::yesNo( $session, {
             name        => "isPrivate",
-            value       => ( $form->get("isPrivate") || $self->get("isPrivate") ),
+            value       => ( $form->get("isPrivate") || $self->isPrivate ),
         });
     
     $var->{ form_keywords }
         = WebGUI::Form::Text( $session, {
             name        => "keywords",
-            value       => ( $form->get("keywords") || $self->get("keywords") ),
+            value       => ( $form->get("keywords") || $self->keywords ),
         });
 
     $var->{ useKarma        } = $parent->karmaIsEnabled;
     $var->{ form_karmaScale }
         = WebGUI::Form::Integer( $session, {
             name        => "karmaScale",
-            value       => ( $form->get("karmaScale") || $self->get("karmaScale") || $parent->get("defaultKarmaScale") ),
+            value       => ( $form->get("karmaScale") || $self->karmaScale || $parent->defaultKarmaScale ),
         });
 
     $var->{ form_solutionSummary }
         = WebGUI::Form::textarea( $session, {
             name        => "solutionSummary",
-            value       => ( $form->get("solutionSummary") || $self->get("solutionSummary") )
+            value       => ( $form->get("solutionSummary") || $self->solutionSummary )
         });
 
     $var->{ form_ticketStatus }
         = WebGUI::Form::selectBox( $session, {
             name        => "ticketStatus",
             options     => $parent->getStatus,
-            value       => ( $form->get("ticketStatus") || $self->get("ticketStatus") )
+            value       => ( $form->get("ticketStatus") || $self->ticketStatus )
         });
     
 
@@ -1974,7 +1937,7 @@ sub www_edit {
     
 
     return $parent->processStyle(
-        $self->processTemplate( $var, $parent->get("editTicketTemplateId") )
+        $self->processTemplate( $var, $parent->editTicketTemplateId )
     );
 }
 
@@ -1993,12 +1956,12 @@ sub www_fileList {
 
     return $self->session->privilege->insufficient  unless $self->canView;
 
-    my $var       = shift || $self->getRelatedFilesVars($self->get('storageId'),$parent->canPost);
+    my $var       = shift || $self->getRelatedFilesVars($self->storageId,$parent->canPost);
 
     $session->http->setMimeType( 'text/html' );
     return $self->processTemplate(
         $var,
-        $parent->get("viewTicketRelatedFilesTemplateId")
+        $parent->viewTicketRelatedFilesTemplateId
     );
 }
 
@@ -2020,7 +1983,7 @@ sub www_getComments {
     return $self->session->privilege->insufficient  unless $self->canView;
 
     #Get the comments
-    $var->{'comments_loop'} = $self->get('comments');
+    $var->{'comments_loop'} = $self->comments;
 
     foreach my $comment (@{$var->{'comments_loop'}}) {
         my $rating = $comment->{rating} || "0";
@@ -2042,7 +2005,7 @@ sub www_getComments {
     $session->log->preventDebugOutput;
     return $self->processTemplate(
         $var,
-        $parent->get("viewTicketCommentsTemplateId")
+        $parent->viewTicketCommentsTemplateId
     );
 }
 
@@ -2066,7 +2029,7 @@ sub www_getFormField {
     if($fieldId eq "ticketStatus") {
         #Only users who can change the status should be returned the form field
         return $session->privilege->insufficient  unless $self->canChangeStatus;
-        my $value   = $self->get("ticketStatus");
+        my $value   = $self->ticketStatus;
 
         $htmlElement = $self->ticketStatusEdit;
     }
@@ -2076,7 +2039,7 @@ sub www_getFormField {
         return $session->privilege->insufficient  unless $self->canEdit;
         $htmlElement = WebGUI::Form::text($session,{
             name      => "karmaScale",
-            value     => $self->get("karmaScale"),
+            value     => $self->karmaScale,
             maxlength => "11",
             extras  => q{class="dyn_form_field"}
         })
@@ -2085,7 +2048,7 @@ sub www_getFormField {
         return $session->privilege->insufficient  unless $self->canPost;
         my $commentText = '';
         my $commentRating = 0;
-        my $comments  = $self->get('comments');    
+        my $comments  = $self->comments;    
         my $commentId = $fieldId;
         $commentId =~ s/comment_//;
         for my $item ( @$comments ) {
@@ -2164,7 +2127,7 @@ sub www_getHistory {
     $session->log->preventDebugOutput;
     return $self->processTemplate(
         $var,
-        $self->getParent->get("viewTicketHistoryTemplateId")
+        $self->getParent->viewTicketHistoryTemplateId
     );
 }
 
@@ -2224,15 +2187,15 @@ sub www_postComment {
         commentId    => $commentId,
     });
 
-    my $avgRating    = $self->get("averageRating");
+    my $avgRating    = $self->averageRating;
 
     #Return JSON to the page
     $session->http->setMimeType( 'text/JSON' );
     return JSON->new->encode({
         averageRating      => sprintf("%.1f", $avgRating),
         averageRatingImage => $self->getAverageRatingImage($avgRating),
-        solutionSummary    => $self->get("solutionSummary"),
-        ticketStatus       => $self->get('ticketStatus'),
+        solutionSummary    => $self->solutionSummary,
+        ticketStatus       => $self->ticketStatus,
         ticketStatusField  => $self->ticketStatusEdit,
         karmaLeft          => $user->karma,
     });
@@ -2317,8 +2280,8 @@ sub www_saveFormField {
         return $self->processErrors(\@errors) if(scalar(@errors));
         #Set karma values
         $self->setKarmaScale($value);
-        my $karmaScale = $self->get("karmaScale");
-        my $karmaRank  = sprintf("%.2f",$self->get("karmaRank"));
+        my $karmaScale = $self->karmaScale;
+        my $karmaRank  = sprintf("%.2f",$self->karmaRank);
         return "{ value: '$karmaScale', username:'$username', karmaRank:'$karmaRank'}";
     }
     elsif($fieldId =~ /comment_/ ) {
@@ -2384,7 +2347,7 @@ sub www_setAssignment {
     my $i18n        = $self->i18n;
 
     my $assignedTo  = $session->form->get("assignedTo");
-    my $nowAssigned = $self->get("assignedTo");
+    my $nowAssigned = $self->assignedTo;
     my @errors      = ();
     
     #Set the mime type
@@ -2459,7 +2422,7 @@ sub www_setAssignment {
                 ;
 
     $self->sendMail({
-        toUser  => $self->get("createdBy"),
+        toUser  => $self->createdBy,
         subject => $i18n->get("notification_assignment_subject"),
         message => sprintf($userMsg,$self->getUrl,$self->getTitle,$username),
     });
@@ -2573,8 +2536,8 @@ sub www_transferKarma {
     $session->http->setMimeType( 'text/JSON' );
     #Get the current values from the object to return
     return JSON->new->encode({
-        karma     => $self->get("karma"),
-        karmaRank => sprintf("%.2f",$self->get("karmaRank")),
+        karma     => $self->karma,
+        karmaRank => sprintf("%.2f",$self->karmaRank),
         karmaLeft => $session->user->karma,
     });    
 }
@@ -2716,7 +2679,7 @@ sub www_userSearch {
     $session->log->preventDebugOutput;
     return $self->processTemplate(
         $var,
-        $parent->get("viewTicketUserListTemplateId")
+        $parent->viewTicketUserListTemplateId
     );
 }
 
