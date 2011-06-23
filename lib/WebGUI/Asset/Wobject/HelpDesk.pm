@@ -1199,7 +1199,7 @@ sub www_getAllTickets {
         push @{ $ticketInfo->{ tickets } }, \%fields;
     }
     
-    $session->http->setMimeType( 'application/json' );
+    $session->response->content_type( 'application/json' );
     return JSON->new->encode( $ticketInfo );
 }
 
@@ -1322,7 +1322,7 @@ sub www_viewAllTickets {
     $var->{'sortColumn'   } = $sortColumn;
     $var->{'sortOrder'    } = $self->sortOrder;
 
-    $session->http->setMimeType( 'text/html' );
+    $session->response->content_type( 'text/html' );
     return $self->processTemplate($var, $self->viewAllTemplateId);
 }
 
@@ -1500,7 +1500,7 @@ sub www_searchTickets {
     return $session->privilege->insufficient unless $self->canView;
     
     #We are returning JSON
-    $session->http->setMimeType( 'application/json' );
+    $session->response->content_type( 'application/json' );
     
     # Determine which metadata fields we need to send
     my $metafields   = $self->getHelpDeskMetaFields({returnHashRef => 1});
@@ -1737,7 +1737,7 @@ sub www_searchTickets {
         push @{ $ticketInfo->{ tickets } }, \%fields;
     }
     
-    $session->http->setMimeType( 'application/json' );
+    $session->response->content_type( 'application/json' );
     return JSON->new->encode( $ticketInfo );
 }
 
@@ -1775,7 +1775,7 @@ sub www_toggleSubscription {
     my $group  = $self->getSubscriptionGroup();    
     my @errors = ();
 
-    $session->http->setMimeType( 'application/json' );
+    $session->response->content_type( 'application/json' );
    
     unless ($self->canSubscribe) {
         push(@errors,'You do not have permission to subscribe to this Help Desk');
