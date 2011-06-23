@@ -822,7 +822,7 @@ sub view {
     $var->{'subscribe_label'} = ($self->isSubscribed) ? $i18n->get("unsubscribe_link") : $i18n->get("subscribe_link");
 
     if($var->{'canPost'}) {
-	    $var->{'url_addTicket'} = $self->getUrl("func=add;class=WebGUI::Asset::Ticket");
+	    $var->{'url_addTicket'} = $self->getUrl("func=add;className=WebGUI::Asset::Ticket");
     }
     if($var->{'canEdit'}) {
        $var->{'url_manageMetaData'} = $self->getUrl("func=manageHelpDeskMetaFields");
