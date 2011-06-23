@@ -1080,7 +1080,7 @@ sub www_getAllTickets {
     my $orderByDirection = lc ($dir) eq "asc" ? "ASC" : "DESC";
 
     #Only allow specific filter types
-    unless(WebGUI::Utility::isIn($filter,"myTickets")) {
+    unless($filter ~~ ["myTickets"]) {
         $filter = "";
     }
 
@@ -1135,7 +1135,7 @@ sub www_getAllTickets {
     }
 
     for my $record ( @{ $p->getPageData } ) {
-        my $ticket = WebGUI::Asset->newByDynamicClass( $session, $record->{assetId} );
+        my $ticket = WebGUI::Asset->newById( $session, $record->{assetId} );
         
         my $assignedTo = $ticket->assignedTo;
         if ($assignedTo) {
