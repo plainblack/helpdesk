@@ -398,7 +398,7 @@ sub canEdit {
         && ($func eq "add" || ($func eq "editSave" && $assetId eq "new" ))
     ) {
         my $user = WebGUI::User->new($session,$userId);
-        return $user->isInGroup($self->getValue("groupToPost"));
+        return $user->isInGroup($self->groupToPost);
     }
     
     return $self->SUPER::canEdit($userId);
@@ -425,7 +425,7 @@ sub canPost {
         $userId = $user->userId;
     }
 
-    return ($user->isInGroup($self->getValue('groupToPost')) || $self->canEdit($userId));
+    return ($user->isInGroup($self->groupToPost) || $self->canEdit($userId));
 }
 
 #-------------------------------------------------------------------
@@ -1248,7 +1248,7 @@ sub www_manageHelpDeskMetaFields {
     $var->{'hasMetaFields'} = $numberOfFields;
     $var->{'fields_loop'  } = \@fieldsLoop;
 
-	return $self->processStyle($self->processTemplate($var, $self->getValue("manageMetaTemplateId")));
+	return $self->processStyle($self->processTemplate($var, $self->manageMetaTemplateId));
 }
 
 #-------------------------------------------------------------------
@@ -1323,7 +1323,7 @@ sub www_viewAllTickets {
     $var->{'sortOrder'    } = $self->sortOrder;
 
     $session->http->setMimeType( 'text/html' );
-    return $self->processTemplate($var, $self->getValue("viewAllTemplateId"));
+    return $self->processTemplate($var, $self->viewAllTemplateId);
 }
 
 
@@ -1360,7 +1360,7 @@ sub www_viewMyTickets {
     $var->{'sortColumn'   } = $sortColumn;
     $var->{'sortOrder'    } = $self->sortOrder;
 
-    return $self->processTemplate($var, $self->getValue("viewMyTemplateId"));
+    return $self->processTemplate($var, $self->viewMyTemplateId);
 }
 
 #-------------------------------------------------------------------
@@ -1487,7 +1487,7 @@ sub www_search {
         }
     }
 
-    return $self->processTemplate($var, $self->getValue("searchTemplateId"));
+    return $self->processTemplate($var, $self->searchTemplateId);
 }
 
 #-------------------------------------------------------------------
