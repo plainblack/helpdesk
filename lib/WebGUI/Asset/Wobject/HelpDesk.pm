@@ -871,8 +871,11 @@ sub www_deleteHelpDeskMetaField {
     
     my $columnName  = "field_".$fieldId;
     
+    my $data = $db->quickHashRef('select * from HelpDesk_metaField where fieldId=?',[$fieldId]);
     #Delete the column from the Ticket_searchIndex table
-    $db->write("ALTER TABLE Ticket_searchIndex DROP COLUMN " . $db->dbh->quote_identifier($columnName));
+    if ($data->{searchable}) {
+        $db->write("ALTER TABLE Ticket_searchIndex DROP COLUMN " . $db->dbh->quote_identifier($columnName));
+    }
     $db->write("DELETE FROM Ticket_metaData WHERE fieldId=?",[$fieldId]);
     $db->write("DELETE FROM HelpDesk_metaField WHERE fieldId=?",[$fieldId]);
 
