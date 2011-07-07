@@ -1779,12 +1779,12 @@ sub view {
     #Process template and determine whether to return the parent style or not.
     my $output = $self->processTemplate($var,$parent->get("viewTicketTemplateId"));
     if ($var->{'callerIsTicketMgr'}) {
-	$session->http->setMimeType( 'application/json' );
+        $session->http->setMimeType( 'application/json' );
+        WebGUI::Macro::process( $session, \$output );
         $output = JSON->new->encode({
             ticketText => $output,
             ticketId => $self->get('ticketId'),
         });
-        WebGUI::Macro::process( $session, \$output );
         $session->log->preventDebugOutput;
     } else {
         $session->http->setMimeType( 'text/html' );
