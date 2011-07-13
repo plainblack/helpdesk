@@ -743,32 +743,6 @@ sub i18n {
 
 #-------------------------------------------------------------------
 
-=head2 isAssigned (  )
-
-Returns a boolean indicating whether this ticket is assigned or not.
-
-=cut
-
-sub isAssigned {
-    my $self     = shift;
-    return $self->isAssigned;
-}
-
-#-------------------------------------------------------------------
-
-=head2 isPrivate (  )
-
-Returns a boolean indicating whether this ticket is private or not.
-
-=cut
-
-sub isPrivate {
-    my $self     = shift;
-    return $self->isPrivate;
-}
-
-#-------------------------------------------------------------------
-
 =head2 isReply (  )
 
 Returns a boolean indicating whether there are comments on this ticket.
@@ -1752,7 +1726,7 @@ sub view {
 
     #Set up some data to return to the ticket page for display purposes
     $var->{'username'         } = $user->username;
-    $var->{'statusValues'     } = JSON->new->encode($parent->getStatus);
+    $var->{'statusValues'     } = JSON->new->encode($parent->status);
 
     #Create URLs for post backs
     $var->{'url_ticketMgr'    } = $parent->getUrl;
