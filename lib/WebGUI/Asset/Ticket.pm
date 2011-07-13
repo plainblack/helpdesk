@@ -1726,7 +1726,7 @@ sub view {
 
     #Set up some data to return to the ticket page for display purposes
     $var->{'username'         } = $user->username;
-    $var->{'statusValues'     } = JSON->new->encode($parent->status);
+    $var->{'statusValues'     } = JSON->new->encode($parent->getStatus);
 
     #Create URLs for post backs
     $var->{'url_ticketMgr'    } = $parent->getUrl;
