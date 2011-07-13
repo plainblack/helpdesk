@@ -345,7 +345,7 @@ sub getCommonDisplayVars {
 
     #Format Data for Display
     $var->{'ticketStatus'     } = $ticketStatus;
-    $var->{'isAssigned'       } = $self->isAssigned;
+    $var->{'isAssigned'       } = $self->assigned;
     $var->{'assignedTo'       } = $assignedTo ? $assignedTo->username : 'unassigned';
     $var->{'assignedToUrl'    } = $assignedTo ? $assignedTo->getProfileUrl : 0 ;
     $var->{'assignedBy'       } = $assignedBy ? $assignedBy->username : '' ;
