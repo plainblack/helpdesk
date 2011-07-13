@@ -461,7 +461,7 @@ override 'getEditTemplate' => sub {
     
     $var->{ form_submit }
         = WebGUI::Form::submit( $session, {
-            name        => "submit",
+            name        => "save",
             value       => "Save",
         });
 
