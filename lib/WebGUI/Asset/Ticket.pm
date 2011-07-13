@@ -1747,7 +1747,8 @@ sub view {
     #Format Data for Display
     $var->{'averageRating_src'} = $self->getAverageRatingImage($var->{'averageRating'});
     $var->{'averageRating'    } = sprintf("%.1f", $var->{'averageRating'});
-    $var->{'solutionStyle'    } = "display:none;" unless ( isIn($self->ticketStatus,qw(resolved closed)) );
+    $var->{'solutionStyle'    } = "display:none;"
+        unless ( grep { $_ eq $self->ticketStatus } qw(resolved closed) );
     #$var->{'isPrivate'        } = $self->isPrivate;
 
     #Icons
