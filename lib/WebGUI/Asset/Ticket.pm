@@ -383,6 +383,175 @@ sub getCommonDisplayVars {
     return $var;
 }
 
+#-------------------------------------------------------------------------
+
+=head2 getEditTemplate ( )
+
+Get the template to edit this ticket
+
+=cut
+
+sub getEditTemplateId {
+    my ( $self ) = @_;
+    return $self->getParent->editTicketTemplateId;
+}
+
+override 'getEditTemplate' => sub {
+    my ( $self ) = @_;
+    my $session = $self->session;
+    my ( $form ) = $session->quick(qw{ form });
+
+    # Prepare the template variables
+    my $var         = {};
+    $var->{isAdmin} = $self->canEdit($session->user->userId,1);
+
+    # Process errors if any
+    if ( $session->stow->get( 'editFormErrors' ) ) {
+        for my $error ( @{ $session->stow->get( 'editFormErrors' ) } ) {
+            push @{ $var->{ errors } }, {
+                error       => $error,
+            };
+        }
+    }
+
+    if ( $form->get('func') eq "add" ) {
+        $var->{ isNewTicket }    = 1;
+    }
+    
+    # Generate the form
+    if ($form->get("func") eq "add"  || ($form->get("func") eq "editSave" && $form->get("assetId") eq "new")) {
+        $var->{ form_start  }
+            = WebGUI::Form::formHeader( $session, {
+                action      => $parent->getUrl('func=editSave;assetId=new;class='.__PACKAGE__),
+            })
+            . WebGUI::Form::hidden( $session, {
+                name        => 'ownerUserId',
+                value       => $session->user->userId,
+            })
+            . WebGUI::Form::hidden( $session, {
+                name        => 'ticketId',
+                value       => "",
+            })
+            ;
+    }
+    else {
+        $var->{ form_start  } 
+            = WebGUI::Form::formHeader( $session, {
+                action      => $self->getUrl('func=editSave'),
+            })
+            . WebGUI::Form::hidden( $session, {
+                name        => 'ownerUserId',
+                value       => $self->ownerUserId,
+            })
+            . WebGUI::Form::hidden( $session, {
+                name        => 'ticketId',
+                value       => $self->ticketId,
+            })
+            ;
+    }
+
+    $var->{ form_start } 
+        .= WebGUI::Form::hidden( $session, {
+            name        => "proceed",
+            value       => "showConfirmation",
+        });
+
+    $var->{ form_end } = WebGUI::Form::formFooter( $session );
+    
+    $var->{ form_submit }
+        = WebGUI::Form::submit( $session, {
+            name        => "submit",
+            value       => "Save",
+        });
+
+    $var->{ form_title  }
+        = WebGUI::Form::Text( $session, {
+            name        => "title",
+            value       => ( $form->get("title") || $self->title ),
+        });
+    
+
+    $var->{ form_synopsis }
+        = WebGUI::Form::HTMLArea( $session, {
+            name        => "synopsis",
+            value       => ( $form->get("synopsis") || $self->synopsis ),
+            richEditId  => $self->getParent->richEditIdPost,
+            height      => 300,
+        });
+
+    $var->{ form_attachment }
+        = WebGUI::Form::file($session, {
+            name            =>"storageId",
+            value           =>$self->storageId,
+            maxAttachments  =>5,
+            deleteFileUrl   =>$self->getUrl("func=deleteFile;filename=")
+        });
+    
+    $var->{ form_isPrivate }
+        = WebGUI::Form::yesNo( $session, {
+            name        => "isPrivate",
+            value       => ( $form->get("isPrivate") || $self->isPrivate ),
+        });
+    
+    $var->{ form_keywords }
+        = WebGUI::Form::Text( $session, {
+            name        => "keywords",
+            value       => ( $form->get("keywords") || $self->keywords ),
+        });
+
+    $var->{ useKarma        } = $parent->karmaIsEnabled;
+    $var->{ form_karmaScale }
+        = WebGUI::Form::Integer( $session, {
+            name        => "karmaScale",
+            value       => ( $form->get("karmaScale") || $self->karmaScale || $parent->defaultKarmaScale ),
+        });
+
+    $var->{ form_solutionSummary }
+        = WebGUI::Form::textarea( $session, {
+            name        => "solutionSummary",
+            value       => ( $form->get("solutionSummary") || $self->solutionSummary )
+        });
+
+    $var->{ form_ticketStatus }
+        = WebGUI::Form::selectBox( $session, {
+            name        => "ticketStatus",
+            options     => $parent->getStatus,
+            value       => ( $form->get("ticketStatus") || $self->ticketStatus )
+        });
+    
+
+    #Build meta fields
+    my $metadata       = $self->getTicketMetaData;
+    my @metaFieldsLoop = ();
+    foreach my $field (@{$parent->getHelpDeskMetaFields}) {
+        my $fieldId = $field->{fieldId};
+        my $name    = "field_$fieldId";
+        my $props = {
+            name         => $name,
+			value        => scalar($metadata->{$fieldId} || $form->get($name)),
+			defaultValue => $field->{defaultValues},
+			options	     => $field->{possibleValues},
+            fieldType    => $field->{dataType},
+        };
+		my $formField = WebGUI::Form::DynamicField->new($session,%{$props})->toHtml;
+        $var->{'form_meta_'.$fieldId} = $formField;
+        push(@metaFieldsLoop,{
+            form_field           => $formField,
+            form_field_name      => "field_".$fieldId,
+            form_field_label     => $field->{label},
+            form_field_hoverHelp => $field->{hoverHelp},
+        });
+	}
+
+    $var->{'fields_loop'} = \@metaFieldsLoop;
+    $var->{'hasMetaFields' } = scalar(@metaFieldsLoop);
+
+    my $template = super();
+    $template->style( $parent->styleTemplateId );
+    $template->setParam( %$var );
+    return $template;
+};
+
 #------------------------------------------------------------------
 
 =head2 getHistory (  )
@@ -1769,176 +1938,6 @@ sub www_copy {
     my $self = shift;
     return $self->session->privilege->insufficient unless $self->canEdit;
     return $self->getParent->processStyle("Tickets cannot be copied");
-}
-
-#----------------------------------------------------------------------------
-
-=head2 www_edit ( )
-
-Web facing method which is the default edit page
-
-This page is only available to those who can edit this Ticket
-
-=cut
-
-sub www_edit {
-    my $self       = shift;
-    my $session    = $self->session;
-    my $form       = $self->session->form;
-    my $parent     = $self->getParent;
-
-    return $self->session->privilege->insufficient  unless $self->canEdit;
-    return $self->session->privilege->locked        unless $self->canEditIfLocked;
-
-    # Prepare the template variables
-    my $var         = {};
-    $var->{isAdmin} = $self->canEdit($session->user->userId,1);
-
-    # Process errors if any
-    if ( $session->stow->get( 'editFormErrors' ) ) {
-        for my $error ( @{ $session->stow->get( 'editFormErrors' ) } ) {
-            push @{ $var->{ errors } }, {
-                error       => $error,
-            };
-        }
-    }
-
-    if ( $form->get('func') eq "add" ) {
-        $var->{ isNewTicket }    = 1;
-    }
-    
-    # Generate the form
-    if ($form->get("func") eq "add"  || ($form->get("func") eq "editSave" && $form->get("assetId") eq "new")) {
-        $var->{ form_start  }
-            = WebGUI::Form::formHeader( $session, {
-                action      => $parent->getUrl('func=editSave;assetId=new;class='.__PACKAGE__),
-            })
-            . WebGUI::Form::hidden( $session, {
-                name        => 'ownerUserId',
-                value       => $session->user->userId,
-            })
-            . WebGUI::Form::hidden( $session, {
-                name        => 'ticketId',
-                value       => "",
-            })
-            ;
-    }
-    else {
-        $var->{ form_start  } 
-            = WebGUI::Form::formHeader( $session, {
-                action      => $self->getUrl('func=editSave'),
-            })
-            . WebGUI::Form::hidden( $session, {
-                name        => 'ownerUserId',
-                value       => $self->ownerUserId,
-            })
-            . WebGUI::Form::hidden( $session, {
-                name        => 'ticketId',
-                value       => $self->ticketId,
-            })
-            ;
-    }
-
-    $var->{ form_start } 
-        .= WebGUI::Form::hidden( $session, {
-            name        => "proceed",
-            value       => "showConfirmation",
-        });
-
-    $var->{ form_end } = WebGUI::Form::formFooter( $session );
-    
-    $var->{ form_submit }
-        = WebGUI::Form::submit( $session, {
-            name        => "submit",
-            value       => "Save",
-        });
-
-    $var->{ form_title  }
-        = WebGUI::Form::Text( $session, {
-            name        => "title",
-            value       => ( $form->get("title") || $self->title ),
-        });
-    
-
-    $var->{ form_synopsis }
-        = WebGUI::Form::HTMLArea( $session, {
-            name        => "synopsis",
-            value       => ( $form->get("synopsis") || $self->synopsis ),
-            richEditId  => $self->getParent->richEditIdPost,
-            height      => 300,
-        });
-
-    $var->{ form_attachment }
-        = WebGUI::Form::file($session, {
-            name            =>"storageId",
-            value           =>$self->storageId,
-            maxAttachments  =>5,
-            deleteFileUrl   =>$self->getUrl("func=deleteFile;filename=")
-        });
-    
-    $var->{ form_isPrivate }
-        = WebGUI::Form::yesNo( $session, {
-            name        => "isPrivate",
-            value       => ( $form->get("isPrivate") || $self->isPrivate ),
-        });
-    
-    $var->{ form_keywords }
-        = WebGUI::Form::Text( $session, {
-            name        => "keywords",
-            value       => ( $form->get("keywords") || $self->keywords ),
-        });
-
-    $var->{ useKarma        } = $parent->karmaIsEnabled;
-    $var->{ form_karmaScale }
-        = WebGUI::Form::Integer( $session, {
-            name        => "karmaScale",
-            value       => ( $form->get("karmaScale") || $self->karmaScale || $parent->defaultKarmaScale ),
-        });
-
-    $var->{ form_solutionSummary }
-        = WebGUI::Form::textarea( $session, {
-            name        => "solutionSummary",
-            value       => ( $form->get("solutionSummary") || $self->solutionSummary )
-        });
-
-    $var->{ form_ticketStatus }
-        = WebGUI::Form::selectBox( $session, {
-            name        => "ticketStatus",
-            options     => $parent->getStatus,
-            value       => ( $form->get("ticketStatus") || $self->ticketStatus )
-        });
-    
-
-    #Build meta fields
-    my $metadata       = $self->getTicketMetaData;
-    my @metaFieldsLoop = ();
-    foreach my $field (@{$parent->getHelpDeskMetaFields}) {
-        my $fieldId = $field->{fieldId};
-        my $name    = "field_$fieldId";
-        my $props = {
-            name         => $name,
-			value        => scalar($metadata->{$fieldId} || $form->get($name)),
-			defaultValue => $field->{defaultValues},
-			options	     => $field->{possibleValues},
-            fieldType    => $field->{dataType},
-        };
-		my $formField = WebGUI::Form::DynamicField->new($session,%{$props})->toHtml;
-        $var->{'form_meta_'.$fieldId} = $formField;
-        push(@metaFieldsLoop,{
-            form_field           => $formField,
-            form_field_name      => "field_".$fieldId,
-            form_field_label     => $field->{label},
-            form_field_hoverHelp => $field->{hoverHelp},
-        });
-	}
-
-    $var->{'fields_loop'} = \@metaFieldsLoop;
-    $var->{'hasMetaFields' } = scalar(@metaFieldsLoop);
-    
-
-    return $parent->processStyle(
-        $self->processTemplate( $var, $parent->editTicketTemplateId )
-    );
 }
 
 #----------------------------------------------------------------------------
