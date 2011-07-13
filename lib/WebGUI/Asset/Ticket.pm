@@ -423,7 +423,7 @@ override 'getEditTemplate' => sub {
     if ($form->get("func") eq "add"  || ($form->get("func") eq "editSave" && $form->get("assetId") eq "new")) {
         $var->{ form_start  }
             = WebGUI::Form::formHeader( $session, {
-                action      => $parent->getUrl('func=editSave;assetId=new;class='.__PACKAGE__),
+                action      => $parent->getUrl('func=addSave;assetId=new;className='.__PACKAGE__),
             })
             . WebGUI::Form::hidden( $session, {
                 name        => 'ownerUserId',
