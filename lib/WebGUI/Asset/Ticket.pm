@@ -400,6 +400,7 @@ override 'getEditTemplate' => sub {
     my ( $self ) = @_;
     my $session = $self->session;
     my ( $form ) = $session->quick(qw{ form });
+    my $parent  = $self->getParent;
 
     # Prepare the template variables
     my $var         = {};
