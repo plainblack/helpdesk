@@ -16,6 +16,8 @@ To install this Asset in a WebGUI site:
 
 1) Download the helpdesk project and put it in /data/helpdesk
 2) echo /data/helpdesk/lib >> /data/WebGUI/sbin/preload.custom
+3) mysql -u dbUser -p dbPassword < docs/helpdesk.sql
 3) cd /data/helpdesk/sbin; perl installHelpdesk.pl --configFile=<your config file name>
 4) cp -R /data/helpdesk/www/extras /data/WebGUI/www
 5) Restart Apache and Spectre.  If you use the WRE, wreservice.pl --restart modperl spectre
+6) Install the HelpDesk package, with templates and styles, from docs/help_desk.wgpkg
