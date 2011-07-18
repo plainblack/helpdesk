@@ -490,10 +490,16 @@ sub definition {
             runOnNewTicket => {
                 fieldType  => 'workflow',
                 tab        => 'display',
-                noFormPost => 0,
                 hoverHelp  => $i18n->echo( 'Workflow to kick off after adding new ticket' ),
                 label      => $i18n->echo( 'Run on New Ticket' ),
             },
+        localTicketsOnly => {
+            fieldType    => 'yesNo',
+            tab          => 'display',
+            defaultValue => '0',
+            hoverHelp    => $i18n->echo( 'By default, the helpdesk displays tickets from all tickets in the system in the My Tickets tab.  Selecting Yes, will limit display of tickets to only those in this Helpdesk.' ),
+            label        => $i18n->echo( 'Show local tickets only?' ),
+        },
 	);
 	push(@{$definition}, {
 		assetName=>$i18n->get('assetName'),
@@ -1135,7 +1141,7 @@ sub www_getAllTickets {
 
     my $sql  = "";
     
-    if($filter eq "myTickets") {
+    if($filter eq "myTickets" && !$self->get('localTicketsOnly')) {
         $sql = $self->getRoot($session)->getLineageSql(['descendants'], $rules);
     }
     else {
