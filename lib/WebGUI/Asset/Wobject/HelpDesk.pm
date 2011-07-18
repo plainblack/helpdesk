@@ -302,6 +302,13 @@ property runOnNewTicket => (
     hoverHelp  => 'Workflow to kick off after adding new ticket',
     label      => 'Run on New Ticket',
 );
+property localTicketsOnly => (
+    fieldType    => 'yesNo',
+    tab          => 'display',
+    defaultValue => '0',
+    hoverHelp    => 'By default, the helpdesk displays tickets from all tickets in the system in the My Tickets tab.  Selecting Yes, will limit display of tickets to only those in this Helpdesk.',
+    label        => 'Show local tickets only?',
+);
 
 #-------------------------------------------------------------------
 sub _getUsersHash {
@@ -1108,7 +1115,7 @@ sub www_getAllTickets {
 
     my $sql  = "";
     
-    if($filter eq "myTickets") {
+    if($filter eq "myTickets" && !$self->get('localTicketsOnly')) {
         $sql = $self->getRoot($session)->getLineageSql(['descendants'], $rules);
     }
     else {
