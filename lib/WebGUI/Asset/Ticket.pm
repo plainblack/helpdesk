@@ -311,7 +311,7 @@ sub get {
 	my $self = shift;
 	my $param = shift;
 	if ($param eq 'comments') {
-		return JSON->new->decode($self->SUPER::get('comments')||'[]');
+		return JSON->new->utf8->decode($self->SUPER::get('comments')||'[]');
 	}
 	return $self->SUPER::get($param, @_);
 }
@@ -971,7 +971,7 @@ sub processErrors {
         errors   =>$errors
     };
 
-    return JSON->new->encode( $errorHash );
+    return JSON->new->utf8->encode( $errorHash );
 }
 
 
@@ -1500,12 +1500,12 @@ sub update {
         my $comments = $properties->{comments};
         $comments = [] unless ($comments);
         if (ref $comments ne 'ARRAY') {
-            $comments = eval{JSON->new->decode($comments)};
+            $comments = eval{JSON->new->utf8->decode($comments)};
             if (WebGUI::Error->caught) {
                 $comments = [];
             }
         }
-        $properties->{comments} = JSON->new->encode($comments);
+        $properties->{comments} = JSON->new->utf8->encode($comments);
     }
    
 	if (exists $properties->{title}) {
@@ -1619,7 +1619,7 @@ sub view {
 
     #Set up some data to return to the ticket page for display purposes
     $var->{'username'         } = $user->username;
-    $var->{'statusValues'     } = JSON->new->encode($parent->getStatus);
+    $var->{'statusValues'     } = JSON->new->utf8->encode($parent->getStatus);
 
     #Create URLs for post backs
     $var->{'url_ticketMgr'    } = $parent->getUrl;
@@ -1781,7 +1781,7 @@ sub view {
     if ($var->{'callerIsTicketMgr'}) {
         $session->http->setMimeType( 'application/json' );
         WebGUI::Macro::process( $session, \$output );
-        $output = JSON->new->encode({
+        $output = JSON->new->utf8->encode({
             ticketText => $output,
             ticketId => $self->get('ticketId'),
         });
@@ -2228,7 +2228,7 @@ sub www_postComment {
 
     #Return JSON to the page
     $session->http->setMimeType( 'text/JSON' );
-    return JSON->new->encode({
+    return JSON->new->utf8->encode({
         averageRating      => sprintf("%.1f", $avgRating),
         averageRatingImage => $self->getAverageRatingImage($avgRating),
         solutionSummary    => $self->get("solutionSummary"),
@@ -2269,7 +2269,7 @@ sub www_postKeywords {
     });
 
     $session->http->setMimeType( 'text/JSON' );
-    return JSON->new->encode( { keywords=>$keywords } );
+    return JSON->new->utf8->encode( { keywords=>$keywords } );
 }
 
 #----------------------------------------------------------------------------
@@ -2467,7 +2467,7 @@ sub www_setAssignment {
     #Return the data
     $session->http->setMimeType( 'text/JSON' );
     my $assignedByUser = WebGUI::User->new($session,$userId);
-    return JSON->new->encode({
+    return JSON->new->utf8->encode({
         assignedTo   => $linkedUsername,
         dateAssigned => $session->datetime->epochToSet($dateAssigned),
         assignedBy   => makeAnchorTag( $assignedByUser->getProfileUrl, $assignedByUser->username ),
@@ -2515,7 +2515,7 @@ sub www_toggleSubscription {
 
     if(scalar(@errors)) {    
         $session->http->setMimeType( 'text/JSON' );
-        return JSON->new->encode({
+        return JSON->new->utf8->encode({
             hasError =>"true",
             errors   =>\@errors
         });
@@ -2572,7 +2572,7 @@ sub www_transferKarma {
     
     $session->http->setMimeType( 'text/JSON' );
     #Get the current values from the object to return
-    return JSON->new->encode({
+    return JSON->new->utf8->encode({
         karma     => $self->get("karma"),
         karmaRank => sprintf("%.2f",$self->get("karmaRank")),
         karmaLeft => $session->user->karma,

@@ -1236,7 +1236,7 @@ sub www_getAllTickets {
     }
     
     $session->http->setMimeType( 'application/json' );
-    return JSON->new->encode( $ticketInfo );
+    return JSON->new->utf8->encode( $ticketInfo );
 }
 
 #-------------------------------------------------------------------
@@ -1567,7 +1567,7 @@ sub www_searchTickets {
 
     #By default don't return any search results   
     unless ($form->get("action") eq "search") {
-        return JSON->new->encode( $ticketInfo );
+        return JSON->new->utf8->encode( $ticketInfo );
     }
 
     #Process Search Form
@@ -1774,7 +1774,7 @@ sub www_searchTickets {
     }
     
     $session->http->setMimeType( 'application/json' );
-    return JSON->new->encode( $ticketInfo );
+    return JSON->new->utf8->encode( $ticketInfo );
 }
 
 #----------------------------------------------------------------------------
@@ -1818,7 +1818,7 @@ sub www_toggleSubscription {
     }
 
     if(scalar(@errors)) {    
-        return JSON->new->encode({
+        return JSON->new->utf8->encode({
             hasError =>"true",
             errors   =>\@errors
         });
