@@ -602,7 +602,7 @@ sub getImageIcon {
     my $icon = shift || "edit";
     my $text = shift || ucfirst($icon);
     
-    my $icon = $self->session->icon->getBaseURL().$icon.".gif";
+    $icon = $self->session->icon->getBaseURL().$icon.".gif";
 
 	return qq{<img src="$icon" style="vertical-align:middle;border: 0px;" alt="$text" title="$text" />};
 }
@@ -2201,7 +2201,7 @@ sub www_postKeywords {
 
     $self->update({ keywords => $keywords });
     
-    my $keywords = WebGUI::Keyword->new($session)->getKeywordsForAsset({
+    $keywords = WebGUI::Keyword->new($session)->getKeywordsForAsset({
         asset      => $self,
         asArrayRef =>1
     });
