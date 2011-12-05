@@ -385,7 +385,7 @@ sub scrubHTML {
         $skip++ if($tag eq $checkTag);
         
         return if ($skip);
-        return if (isIn($tag,@skipTags));
+        return if ($tag ~~ @skipTags);
         
         $newHtml .= $text;
 	};
@@ -393,7 +393,7 @@ sub scrubHTML {
     my $endTagHandler = sub {
         my ($tag, $num, $text) = @_;
         #print "End Tag: $tag \n";
-        return if (isIn($tag,@skipTags));
+        return if ($tag ~~ @skipTags);
         if($skip == 0) {
             $newHtml .= $text;
             return;
