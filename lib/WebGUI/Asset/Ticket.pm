@@ -54,6 +54,15 @@ property assignedTo => (
     fieldType    => "hidden",
     defaultValue => undef
 );
+around assignedTo => sub {
+    my $orig = shift;
+    my $self = shift;
+    return $self->$orig if !@_;
+    my $value = shift;
+    $value = '' if $value eq 'unassigned';
+    return $self->$orig($value);
+};
+
 property assignedBy => (
     noFormPost   => 1,
     fieldType    => "hidden",
@@ -66,10 +75,12 @@ property dateAssigned => (
 );
 property comments => (
     noFormPost   => 1,
-    fieldType    => "hidden",
+    fieldType    => 'hidden',
+    isa          => 'WebGUI::Type::JSONArray',
     serialize    => 1,
     defaultValue => [],
 );
+
 property solutionSummary => (
     fieldType    => "hidden",
     defaultValue => undef,
@@ -99,15 +110,35 @@ property resolvedDate => (
     fieldType    => "hidden",
     defaultValue => undef
 );
+property karmaScale => (
+    fieldType    => "hidden",
+    defaultValue => undef,
+);
+around karmaScale => sub {
+    my $orig = shift;
+    my $self = shift;
+    return $self->$orig if !@_;
+    my $value = shift;
+    $value ||= $self->parent->defaultKarmaScale;
+    $self->karmaRank($self->karma/$value);
+    return $self->$orig($value);
+};
+##Karma depends on karmaScale so should be processed after it
 property karma => (
     noFormPost   => 1,
     fieldType    => "hidden",
     defaultValue => undef
 );
-property karmaScale => (
-    fieldType    => "hidden",
-    defaultValue => undef,
-);
+around karma => sub {
+    my $orig = shift;
+    my $self = shift;
+    return $self->$orig if !@_;
+    my $value = shift;
+    return if !$value;
+    $self->karmaRank($value/$self->karmaScale);
+    return $self->$orig($value);
+};
+
 property karmaRank => (
     noFormPost   => 1,
     fieldType    => "hidden",
@@ -119,6 +150,24 @@ property subscriptionGroup => (
     defaultValue => undef,
 );
 
+around title => sub {
+    my $orig = shift;
+    my $self = shift;
+    return $self->$orig() if !@_;
+    my $title = shift;
+    WebGUI::Macro::negate(\$title);
+    $self->menuTitle($title);
+    return $self->$orig($title);
+};
+
+around synopsis => sub {
+    my $orig = shift;
+    my $self = shift;
+    return $self->$orig() if !@_;
+    my $value = shift;
+    WebGUI::Macro::negate(\$value);
+    return $self->$orig($value);
+};
 
 #-------------------------------------------------------------------
 sub canAdd {
@@ -235,13 +284,13 @@ sub canView{
 }
 
 #-------------------------------------------------------------------
-sub commit {
+override commit => sub {
 	my $self    = shift;
     my $session = $self->session;
     my $parent  = $self->getParent;
     my $i18n    = $self->i18n;
 
-	$self->SUPER::commit;
+    super();
     
     my $msg = $i18n->get("update_ticket_message");
     
@@ -261,7 +310,7 @@ sub commit {
         user            =>WebGUI::User->new($session,$self->ownerUserId)
     }) unless ($self->shouldSkipNotification);
 
-}
+};
 
 #-------------------------------------------------------------------
 sub createAdHocMailGroup {
@@ -1092,12 +1141,12 @@ Make the default title into the file name minus the extention.
 
 =cut
 
-sub processPropertiesFromFormPost {
+override processEditForm => sub {
     my $self    = shift;
     my $session = $self->session;
     my $form    = $session->form;
     my $db      = $session->db;
-    my $errors  = $self->SUPER::processPropertiesFromFormPost || [];
+    my $errors  = super() || [];
     my $assetId = $self->getId;
     my $parent  = $self->getParent;
     my $i18n    = $self->i18n;
@@ -1173,7 +1222,7 @@ sub processPropertiesFromFormPost {
     }
 
     return undef;
-}
+};
 
 
 #-------------------------------------------------------------------
@@ -1188,7 +1237,7 @@ asset instances, you will need to purge them here.
 
 =cut
 
-sub purge {
+override purge => sub {
 	my $self    = shift;
     my $session = $self->session;
     my $db      = $session->db;
@@ -1212,8 +1261,8 @@ sub purge {
     #Delete records from the searchIndex table
     $db->write("delete from Ticket_searchIndex where assetId=?",[$self->getId]);
 
-	return $self->SUPER::purge;
-}
+	return super();
+};
 
 #-------------------------------------------------------------------
 
@@ -1596,55 +1645,22 @@ sub unsubscribe {
 }
 
 #-------------------------------------------------------------------
-sub update {
+override update => sub {
+    super();
     my $self       = shift;
     my $session    = $self->session;
     my $db         = $session->db;
     my $parent     = $self->getParent;
 	my $properties = shift;
 
-	if (exists $properties->{comments}) {
-        my $comments = $properties->{comments};
-        $comments = [] unless ($comments);
-        if (ref $comments ne 'ARRAY') {
-            $comments = eval{JSON->new->decode($comments)};
-            if (WebGUI::Error->caught) {
-                $comments = [];
-            }
-        }
-        $properties->{comments} = JSON->new->encode($comments);
-    }
-   
-	if (exists $properties->{title}) {
-		WebGUI::Macro::negate(\$properties->{title});
-		$properties->{menuTitle} = $properties->{title};
-	}
-	if (exists $properties->{synopsis}) {
-		WebGUI::Macro::negate(\$properties->{synopsis});
-	}
-    if ($properties->{assignedTo} eq "unassigned") {
-        $properties->{assignedTo} = "";
-    }
-    #Karma scale cannot be zero
-    if(exists $properties->{karmaScale} && $properties->{karmaScale} == 0) {
-        $properties->{karmaScale} = $self->karmaScale || $parent->defaultKarmaScale;
-    }
-    if ($properties->{karma} || $properties->{karmaScale}) {
-        my $scale = $properties->{karmaScale} || $self->karmaScale || 1;
-        my $karma = $properties->{karma} || $self->karma;
-        $properties->{karmaRanking} = $karma / $scale;
-    }
-    #Update Ticket
-    $self->SUPER::update($properties, @_);
-
 	#update the Ticket meta data
     if( defined $properties->{metadata} && ref $properties->{metadata} eq 'ARRAY' ) {
-	foreach my $props (@{$properties->{metadata}}) {
-	    $db->write(
-		"REPLACE into Ticket_metaData (fieldId,assetId,value) values (?,?,?)",
-		[$props->{fieldId},$self->getId,$props->{value}]
-	    );
-	}
+        foreach my $props (@{$properties->{metadata}}) {
+            $db->write(
+            "REPLACE into Ticket_metaData (fieldId,assetId,value) values (?,?,?)",
+            [$props->{fieldId},$self->getId,$props->{value}]
+            );
+        }
     }
 
     my $props = {
@@ -1680,7 +1696,7 @@ sub update {
     #update the search index
     $db->setRow("Ticket_searchIndex","assetId",$props,$self->getId);
 	
-}
+};
 
 
 #-------------------------------------------------------------------
