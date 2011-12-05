@@ -23,7 +23,6 @@ use WebGUI::Asset;
 use WebGUI::HTML;
 use WebGUI::International;
 use WebGUI::User;
-use WebGUI::Utility;
 use WebGUI::HTML;
 use HTML::Parser;
 
