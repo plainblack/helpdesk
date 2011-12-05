@@ -187,6 +187,13 @@ property defaultKarmaScale => (
     hoverHelp    => 
         "This is the default value that will be assigned to the karma scale field in threads. Karma scale is a weighting mechanism for karma sorting that can be used for handicaps, difficulty, etc.",
 );
+around defaultKarmaScale => sub {
+    my $orig = shift;
+    my $self = shift;
+    return $self->$orig if !@_;
+    my $value = shift || 1;
+    return $self->$orig($value);
+};
 property karmaPerPost => (
     tab          => "properties",
     fieldType    => "integer",
@@ -343,36 +350,6 @@ sub _getUsersHash {
     return \%hash;
 }
 
-#----------------------------------------------------------------------------
-
-=head2 addChild ( properties [, ... ] )
-
-Add a Ticket to this HelpDesk. See C<WebGUI::AssetLineage> for more info.
-
-Override to ensure only appropriate classes get added to the HelpDesk.
-
-=cut
-
-sub addChild {
-    my $self        = shift;
-    my $properties  = shift;
-    my $fileClass   = 'WebGUI::Asset::Ticket';
-    my $session     = $self->session;
-
-    # Make sure we only add appropriate child classes
-    unless($properties->{className} eq $fileClass) {
-        $session->errorHandler->security(
-            "add a ".$properties->{className}." to a ".$self->className
-        );
-        return undef;
-    }
-
-    my $ticket = $self->SUPER::addChild( $properties, @_ );
-    return undef unless $ticket;
-
-    return $ticket;
-}
-
 #-------------------------------------------------------------------
 
 =head2 canEdit
@@ -389,13 +366,14 @@ If this flag is set, canEdit will ignore the new conditions even if the ticket b
 
 =cut
 
-sub canEdit {
+around canEdit => sub {
+    my $orig      = shift;
     my $self      = shift;
     my $session   = $self->session;
     my $form      = $session->form;
     my $func      = $form->get("func");
     my $assetId   = $form->get("assetId");
-    my $userId    = shift || $self->session->user->userId;
+    my $userId    = shift || $session->user->userId;
     my $ignoreNew = shift;
 
     #Adding tickets from the help desk    
@@ -408,8 +386,8 @@ sub canEdit {
         return $user->isInGroup($self->groupToPost);
     }
     
-    return $self->SUPER::canEdit($userId);
-}
+    return $self->$orig($userId);
+};
 
 #-------------------------------------------------------------------
 
@@ -443,12 +421,12 @@ sub canSubscribe {
 }
 
 #-------------------------------------------------------------------
-sub commit {
+override commit => sub {
     my $self = shift;
     my $i18n = $self->i18n;
     my $cron = undef;
     
-    $self->SUPER::commit;
+    super();
     
     #Handle setting up the cron job
     if ($self->getMailCronId) {
@@ -480,7 +458,7 @@ sub commit {
             minuteOfHour=>"*/".($self->getMailInterval/60)
         });
     }
-}
+};
 
 #-------------------------------------------------------------------
 sub createSubscriptionGroup {
@@ -515,10 +493,12 @@ Add a tab for the mail interface.
 
 =cut
 
-sub getEditTabs {
+override addEditSaveTabs => sub {
 	my $self = shift;
-	return ($self->SUPER::getEditTabs(), ['mail', "Mail", 9]);
-}
+    my $form = super();
+    $form->addTab(name => 'mail', label => 'Mail', ); ##uiLevel used to be 9
+    return $form;
+};
 
 #------------------------------------------------------------------
 
@@ -745,42 +725,34 @@ See WebGUI::Asset::prepareView() for details.
 
 =cut
 
-sub prepareView {
+override prepareView => sub {
 	my $self = shift;
-	$self->SUPER::prepareView();
+	super;
 	my $template = WebGUI::Asset::Template->new($self->session, $self->viewTemplateId);
 
 	$template->prepare;
 	$self->{_viewTemplate} = $template;
-}
+};
 
 #----------------------------------------------------------------------------
 
-=head2 processPropertiesFromFormPost ( )
+=head2 processEditForm ( )
 
-Process the asset edit form. 
-
-Make the default title into the file name minus the extention.
+Extend the base method to guarantee a subscription group exists.
 
 =cut
 
-sub processPropertiesFromFormPost {
+override processEditForm => sub {
     my $self    = shift;
-    my $session = $self->session;
-    my $form    = $session->form;
-    my $errors  = $self->SUPER::processPropertiesFromFormPost || [];
-
-    if ($form->get('defaultKarmaScale') == 0) {
-        $self->update({ defaultKarmaScale => 1 });
-    }
+    super();
 
     $self->getSubscriptionGroup(); 
 
     return undef;
-}
+};
 
 #-------------------------------------------------------------------
-sub purge {
+override purge => sub {
 	my $self    = shift;
     my $session = $self->session;
 
@@ -797,8 +769,8 @@ sub purge {
     #Delete all the metadata fields
     $session->db->write("delete from HelpDesk_metaField where assetId=?",[$self->getId]);
 
-    $self->SUPER::purge;
-}
+    super();
+};
 
 #-------------------------------------------------------------------
 
@@ -1123,7 +1095,7 @@ sub www_getAllTickets {
     }
 
     my $startIndex        = $form->get( 'startIndex' ) || 1;
-    my $rowsPerPage         = $form->get( 'rowsPerPage' ) || 25;
+    $rowsPerPage         = $form->get( 'rowsPerPage' ) || 25;
     my $currentPage         = int ( $startIndex / $rowsPerPage ) + 1;
     
     my $p = WebGUI::Paginator->new( $session, '', $rowsPerPage, 'pn', $currentPage );
@@ -1527,7 +1499,7 @@ sub www_searchTickets {
     my $orderByDirection = lc $form->get( 'orderByDirection' ) eq "asc" ? "ASC" : "DESC";
     
     my $startIndex     = $form->get( 'startIndex' ) || 1;
-    my $rowsPerPage      = $form->get( 'rowsPerPage' ) || 25;
+    $rowsPerPage      = $form->get( 'rowsPerPage' ) || 25;
     my $currentPage      = int ( $startIndex / $rowsPerPage ) + 1;
 
     #Set some initial ticket info

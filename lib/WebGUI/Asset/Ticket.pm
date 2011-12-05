@@ -1920,6 +1920,20 @@ sub view {
 
 #-------------------------------------------------------------------
 
+=head2 valid_parent_classes ( )
+
+The only valid parent for a Ticket is a HelpDesk.
+
+=cut
+
+override valid_parent_classes {
+    my $classes = super();
+    push @{ $classes }, 'WebGUI::Asset::Wobject::HelpDesk';
+    return $classes;
+};
+
+#----#-------------------------------------------------------------------
+
 =head2 www_copy ( )
 
 Overrides the default copy functionality and does nothing.
