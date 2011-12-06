@@ -14,11 +14,11 @@ package WebGUI::Asset::Ticket;
 
 =cut
 
+use strict;
 use Moose;
 use WebGUI::Definition::Asset;
-use JSON;
 extends 'WebGUI::Asset';
-use WebGUI::Workflow::Instance;
+use JSON;
 
 
 my $ratingUrl       = "wobject/HelpDesk/rating/";
@@ -168,6 +168,8 @@ around synopsis => sub {
     WebGUI::Macro::negate(\$value);
     return $self->$orig($value);
 };
+
+use WebGUI::Workflow::Instance;
 
 #-------------------------------------------------------------------
 sub canAdd {
@@ -1926,7 +1928,7 @@ The only valid parent for a Ticket is a HelpDesk.
 
 =cut
 
-override valid_parent_classes {
+override valid_parent_classes => sub {
     my $classes = super();
     push @{ $classes }, 'WebGUI::Asset::Wobject::HelpDesk';
     return $classes;
