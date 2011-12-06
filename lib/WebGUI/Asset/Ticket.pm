@@ -1647,13 +1647,14 @@ sub unsubscribe {
 }
 
 #-------------------------------------------------------------------
-override update => sub {
-    super();
+around update => sub {
+    my $orig       = shift;
     my $self       = shift;
     my $session    = $self->session;
     my $db         = $session->db;
     my $parent     = $self->getParent;
 	my $properties = shift;
+    $self->$orig($properties);
 
 	#update the Ticket meta data
     if( defined $properties->{metadata} && ref $properties->{metadata} eq 'ARRAY' ) {
