@@ -166,14 +166,14 @@ sub execute {
             #Look up the mapping to the ticketId
             my ($ticketId) = $session->db->quickArray("select mapToAssetId from Ticket_collabRef where origAssetId=?",[$id]);
             if($ticketId) {
-                $ticket = WebGUI::Asset->newByDynamicClass($session, $ticketId);
+                $ticket = WebGUI::Asset->newById($session, $ticketId);
                 $isSubscribed = $isSubscribed || $ticket->isSubscribedToTicket($userId);  #subscribed to the ticket?
             }
 		}
 
         if ($message->{inReplyTo} && $message->{inReplyTo} =~ m/ticket\-([\w_-]{22})\@/) {
 			my $id = $1;
-			$ticket = WebGUI::Asset->newByDynamicClass($session, $id);
+			$ticket = WebGUI::Asset->newById($session, $id);
             $isSubscribed = $isSubscribed || $ticket->isSubscribedToTicket($userId);  #subscribed to the ticket?
 		}
 

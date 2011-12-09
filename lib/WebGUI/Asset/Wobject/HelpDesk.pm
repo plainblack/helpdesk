@@ -1656,7 +1656,7 @@ sub www_searchTickets {
     $ticketInfo->{'totalRecords'} = $p->getRowCount;
     
     for my $record ( @{ $p->getPageData } ) {
-        my $ticket  = WebGUI::Asset->newByDynamicClass($session, $record->{'assetId'});
+        my $ticket  = WebGUI::Asset->newById($session, $record->{'assetId'});
 
         my $lastReplyBy = $record->{'lastReplyBy'};
         if ($lastReplyBy) {
@@ -1788,7 +1788,7 @@ sub www_toggleSubscription {
     my $ticketMsg = "";
     my $assetId   = $session->form->get("assetId");
     if($assetId) {
-        my $ticket = WebGUI::Asset->newByDynamicClass($session,$assetId);
+        my $ticket = WebGUI::Asset->newById($session,$assetId);
         $ticketMsg = $ticket->getSubscriptionMessage;
     }
 
