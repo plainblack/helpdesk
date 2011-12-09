@@ -2691,23 +2691,5 @@ sub www_userSearch {
     );
 }
 
-#-------------------------------------------------------------------
-
-=head2 www_view ( )
-
-Web facing method which is the default view page.  This method does a 
-302 redirect to the "showPage" file in the storage location.
-
-=cut
-
-sub www_view {
-	my $self    = shift;
-    my $session = $self->session;
-	
-    return $session->privilege->noAccess() unless $self->canView;
-
-    return $self->view;
-}
-
 1;
 
