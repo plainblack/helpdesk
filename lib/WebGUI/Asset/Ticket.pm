@@ -120,7 +120,7 @@ around karmaScale => sub {
     my $self = shift;
     return $self->$orig if !@_;
     my $value = shift;
-    $value ||= $self->parent->defaultKarmaScale;
+    $value ||= $self->getParent->defaultKarmaScale;
     $self->karmaRank($self->karma/$value);
     return $self->$orig($value);
 };
@@ -803,8 +803,7 @@ Returns a boolean indicating whether there are comments on this ticket.
 
 sub isReply {
     my $self     = shift;
-    my $comments = JSON->new->decode( $self->comments );
-    return (scalar(@$comments) > 1);
+    return (scalar(@{ $self->comments }) > 1);
 }
 
 #-------------------------------------------------------------------
@@ -1032,7 +1031,7 @@ sub postComment {
 
     return 0 if ($comment eq "");
 
-    my $comments  = JSON->new->decode( $self->comments );
+    my $comments  = $self->comments;
     my $commentId;
     if( $options->{commentId} && $options->{commentId} ne 'new' ) {
         $commentId = $options->{commentId};
@@ -1074,7 +1073,7 @@ sub postComment {
 
     #Update the Ticket.
 	$self->update({
-        comments         => JSON->new->encode( $comments ),
+        comments         => $comments,
         solutionSummary  => $solution,
         averageRating    => $avgRating,
         lastReplyDate    => $now,
@@ -1992,7 +1991,7 @@ sub www_getComments {
     return $self->session->privilege->insufficient  unless $self->canView;
 
     #Get the comments
-    $var->{'comments_loop'} = JSON->new->decode( $self->comments );
+    $var->{'comments_loop'} = $self->comments;
 
     foreach my $comment (@{$var->{'comments_loop'}}) {
         my $rating = $comment->{rating} || "0";
@@ -2057,7 +2056,7 @@ sub www_getFormField {
         return $session->privilege->insufficient  unless $self->canPost;
         my $commentText = '';
         my $commentRating = 0;
-        my $comments  = JSON->new->decode( $self->comments );
+        my $comments  = $self->comments;
         my $commentId = $fieldId;
         $commentId =~ s/comment_//;
         for my $item ( @$comments ) {
