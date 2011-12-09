@@ -74,8 +74,8 @@ sub execute {
     
     my $sth     = $session->db->read("select assetId from asset where className='WebGUI::Asset::Wobject::HelpDesk'");
     while (my ($assetId) = $sth->array) {
-        my $hd = WebGUI::Asset->new($session,$assetId,"WebGUI::Asset::Wobject::HelpDesk");
-        next unless defined $hd;
+        my $hd = eval { WebGUI::Asset->newById($session,$assetId); };
+        next if Exception::Class->caught();
 
         my $closeAfter = $hd->get("closeTicketsAfter");
 
