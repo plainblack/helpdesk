@@ -379,8 +379,8 @@ around canEdit => sub {
     #Adding tickets from the help desk    
     if(!$ignoreNew
         && $userId eq $session->user->userId
-        && $form->get("class") eq "WebGUI::Asset::Ticket"
-        && ($func eq "add" || ($func eq "editSave" && $assetId eq "new" ))
+        && $form->get("className") eq "WebGUI::Asset::Ticket"
+        && ($func eq "add" || ($func eq "addSave" && $assetId eq "new" ))
     ) {
         my $user = WebGUI::User->new($session,$userId);
         return $user->isInGroup($self->groupToPost);
@@ -728,7 +728,7 @@ See WebGUI::Asset::prepareView() for details.
 override prepareView => sub {
 	my $self = shift;
 	super;
-	my $template = WebGUI::Asset::Template->new($self->session, $self->viewTemplateId);
+	my $template = WebGUI::Asset->newById($self->session, $self->viewTemplateId);
 
 	$template->prepare;
 	$self->{_viewTemplate} = $template;
