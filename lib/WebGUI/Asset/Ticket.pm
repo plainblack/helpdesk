@@ -76,9 +76,10 @@ property dateAssigned => (
 property comments => (
     noFormPost   => 1,
     fieldType    => 'hidden',
+    default      => sub { return []; },
     isa          => 'WebGUI::Type::JSONArray',
-    serialize    => 1,
-    defaultValue => [],
+    coerce       => 1,
+    traits       => ['Array', 'WebGUI::Definition::Meta::Property::Serialize',],
 );
 
 property solutionSummary => (
