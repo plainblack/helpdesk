@@ -1709,8 +1709,12 @@ sub www_searchTickets {
     #Set the number of records returned
     $ticketInfo->{'totalRecords'} = $p->getRowCount;
     
-    for my $record ( @{ $p->getPageData } ) {
+    TICKET: for my $record ( @{ $p->getPageData } ) {
         my $ticket  = WebGUI::Asset->newByDynamicClass($session, $record->{'assetId'});
+        if (!$ticket) {
+            $session->log->warn("Could not instanciate ticket with assetId: ".$record->{assetId});
+            next TICKET;
+        }
 
         my $lastReplyBy = $record->{'lastReplyBy'};
         if ($lastReplyBy) {
