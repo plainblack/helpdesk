@@ -137,11 +137,12 @@ WebGUI.Ticket.postComment = function (evt, obj) {
                         //  re-set the linkage to the edit comment code...
 			WebGUI.Ticket.editCommentsSetup();
                         YAHOO.util.Dom.get("commentsForm").reset();
-                        //Set the average rating
                         var averageRatingImg   = YAHOO.util.Dom.get("averageRatingImg");
-                        averageRatingImg.src   = response.averageRatingImage;
-                        averageRatingImg.title = response.averageRating;
-                        averageRatingImg.alt   = response.averageRating;
+                        if (averageRatingImg) {
+                            averageRatingImg.src   = response.averageRatingImage;
+                            averageRatingImg.title = response.averageRating;
+                            averageRatingImg.alt   = response.averageRating;
+                        }
 		        //Set ticket status as it may have been changed to pending after a comment was made
 		        YAHOO.util.Dom.get("field_id_ticketStatus").innerHTML = response.ticketStatusField;
                         //Set the solution summary

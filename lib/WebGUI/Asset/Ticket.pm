@@ -20,6 +20,7 @@ use JSON;
 use base 'WebGUI::Asset';
 use WebGUI::Utility;
 use WebGUI::Workflow::Instance;
+use WebGUI::Mail::Send;
 
 my $ratingUrl       = "wobject/HelpDesk/rating/";
 
