@@ -17,6 +17,7 @@ package WebGUI::Asset::Ticket;
 use strict;
 use Tie::IxHash;
 use JSON;
+use Encode;
 use base 'WebGUI::Asset';
 use WebGUI::Utility;
 use WebGUI::Workflow::Instance;
@@ -312,7 +313,12 @@ sub get {
 	my $self = shift;
 	my $param = shift;
 	if ($param eq 'comments') {
-		return JSON->new->utf8->decode($self->SUPER::get('comments')||'[]');
+	    my $comments = $self->SUPER::get('comments');
+	    $comments = Encode::encode('UTF-8', $comments);
+	    my $res = eval { JSON->new->utf8->decode( $comments || '[]' ) };
+	    $self->session->log->error( $@ ) if $@;
+	    $_->{comment} = Encode::decode('UTF-8',$_->{comment}) for @$res;
+            return $res ;
 	}
 	return $self->SUPER::get($param, @_);
 }
@@ -915,7 +921,7 @@ sub postComment {
     }
 
     #Update the Ticket.
-	$self->update({
+    $self->update({
         comments         => $comments,
         solutionSummary  => $solution,
         averageRating    => $avgRating,

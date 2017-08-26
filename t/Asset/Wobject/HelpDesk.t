@@ -14,6 +14,7 @@
 
 use FindBin;
 use strict;
+use utf8; # see line 165
 use lib "$FindBin::Bin/../../lib";
 use Test::More;
 use Test::Deep;
@@ -37,7 +38,7 @@ WebGUI::Test->addToCleanup($versionTag);
 #----------------------------------------------------------------------------
 # Tests
 
-plan tests => 21;        # Increment this number for each test you create
+plan tests => 22;        # Increment this number for each test you create
 
 #----------------------------------------------------------------------------
 # put your tests here   ( 4 tests )
@@ -60,6 +61,10 @@ my $ticket = $helpdesk->addChild({
 });
 isa_ok($ticket,'WebGUI::Asset::Ticket');
 WebGUI::Test::addToCleanup($ticket);
+
+my $comment = '¢✓☒␤';  # utf8
+$ticket->update( { comments => [ { comment => $comment } ] } );
+is( $ticket->get('comments')->[0]{comment}, $comment, 'successfully stored & retrieved utf8 comment' );
 
 $versionTag->commit();
 $versionTag = WebGUI::VersionTag->getWorking($session);
