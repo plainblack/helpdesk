@@ -32,7 +32,7 @@ my $node = WebGUI::Asset->getImportNode($session);
 
 my $versionTag = WebGUI::VersionTag->getWorking($session);
 $versionTag->set({name=>"HelpDesk Test"});
-WebGUI::Test->tagsToRollback($versionTag);
+WebGUI::Test->addToCleanup($versionTag);
 
 #----------------------------------------------------------------------------
 # Tests
@@ -49,26 +49,26 @@ my $helpdesk = $node->addChild({
     title => 'test help desk',
          });
 isa_ok($helpdesk,'WebGUI::Asset::Wobject::HelpDesk');
-WebGUI::Test::assetsToPurge($helpdesk);
+WebGUI::Test::addToCleanup($helpdesk);
 is( $helpdesk->canEdit, 1, 'user can edit helpdesk');
 is( $helpdesk->canPost, 1, 'user can post comments in helpdesk');
-is( $helpdesk->canSubscribe, 1, 'user can subscribe to tickey update emails in helpdesk');
+is( $helpdesk->canSubscribe, 1, 'user can subscribe to ticket update emails in helpdesk');
 
 my $ticket = $helpdesk->addChild({
     className=>'WebGUI::Asset::Ticket',
     title => 'a test ticket',
 });
 isa_ok($ticket,'WebGUI::Asset::Ticket');
-WebGUI::Test::assetsToPurge($ticket);
+WebGUI::Test::addToCleanup($ticket);
 
 $versionTag->commit();
 $versionTag = WebGUI::VersionTag->getWorking($session);
 $versionTag->set({name=>"HelpDesk Test"});
-WebGUI::Test->tagsToRollback($versionTag);
+WebGUI::Test->addToCleanup($versionTag);
 
 isa_ok( my $group = $helpdesk->createSubscriptionGroup, 'WebGUI::Group');
 is( $helpdesk->getSubscriptionGroup->getId, $group->getId, 'getSubscriptionGroup matches createSubscriptionGroup');
-WebGUI::Test::groupsToDelete($group);
+WebGUI::Test::addToCleanup($group);
 
 #----------------------------------------------------------------------------
 # test meta fields   ( 4 tests )
@@ -92,21 +92,21 @@ $mf1 = $helpdesk->getHelpDeskMetaFieldByLabel('MF1');
 is($mf1->{fieldId}, $newId, 'getHelpDeskMetaFieldByLabel tests OK');
 
 my $mf = $helpdesk->getHelpDeskMetaFields({returnHashRef => 1});
-isa_ok( $mf, 'HASH', "getHelpDeskMetaFields returns a HASH ref");
+isa_ok( $mf, 'HASH', 'getHelpDeskMetaFields');
 is( scalar(keys %$mf), 1, "getHelpDeskMetaFields returns correct number of keys");
 is_deeply( [keys %$mf], [ $newId ], "getHelpDeskMetaFields returns the correct key");
 
 #----------------------
-use lib '/root/pb/lib'; use dav;
 
-isa_ok( $helpdesk->i18n, 'WebGUI::International' );
+isa_ok( $helpdesk->i18n, 'WebGUI::International', 'i18n' );
 
 $helpdesk->indexTickets; # no return value, TODO: can we test side effects?
 
 $helpdesk->commit;
 my $cron = WebGUI::Workflow::Cron->new($session, $helpdesk->get("getMailCronId"));
 isa_ok( $cron, 'WebGUI::Workflow::Cron');
-WebGUI::Test::workflowsToDelete($helpdesk->get('getMailCronId'));
+#WebGUI::Test::addToCleanup( $cron );  ---> does not work...
+END { $cron->delete }  # should get removed when the previous gets fixed...
 
 is( $helpdesk->isSubscribed, 0, 'isSubscribed returns 0');
 is( $helpdesk->karmaIsEnabled, 0, 'karma is not enabled');
@@ -123,14 +123,13 @@ my $expect = {
     };
 
 my $actual = from_json($helpdesk->www_getAllTickets);
-dav::dump 'getAllTickets', $actual;
 cmp_deeply( $actual, $expect, 'test www_getAllTickets');
 
 #----------------------
 
 is( scalar( keys %{$helpdesk->getStatus}), 7, 'getStatus returns 7 items');
-isa_ok( $helpdesk->getSortDirs, 'HASH', 'getSortDirs returns a HASHREF' );
-isa_ok( $helpdesk->getSortOptions, 'HASH', 'getSortOptions returns a HASHREF' );
+isa_ok( $helpdesk->getSortDirs, 'HASH', 'getSortDirs' );
+isa_ok( $helpdesk->getSortOptions, 'HASH', 'getSortOptions' );
 
 TODO: {
         local $TODO = "this test needs work";
@@ -146,7 +145,7 @@ my $return_text = $helpdesk->www_editHelpDeskMetaFieldSave();
 $versionTag->commit();
 $versionTag = WebGUI::VersionTag->getWorking($session);
 $versionTag->set({name=>"HelpDesk Test"});
-WebGUI::Test->tagsToRollback($versionTag);
+WebGUI::Test->addToCleanup($versionTag);
 
 $mf = $helpdesk->getHelpDeskMetaFields({returnHashRef => 1});
 is( scalar(keys %$mf), 2, "successfully added a new meta field");
